@@ -58,6 +58,7 @@ local EN = {
     ["Verification en cours..."] = "Checking...",
     ["Dernier run : "] = "Last run : ",
     ["Pas encore de PB"] = "No PB yet",
+    ["[pause]"] = "[paused]",
     ["Reglages du timer"] = "Timer settings",
     ["Apercu"] = "Preview",
     ["Afficher le timer pendant une quete"] = "Show the timer during a quest",
@@ -121,6 +122,7 @@ local JA = {
     ["Verification en cours..."] = "確認中...",
     ["Dernier run : "] = "前回のタイム：",
     ["Pas encore de PB"] = "PBなし",
+    ["[pause]"] = "[一時停止]",
     ["Reglages du timer"] = "タイマー設定",
     ["Apercu"] = "プレビュー",
     ["Afficher le timer pendant une quete"] = "クエスト中にタイマーを表示",
@@ -1075,9 +1077,10 @@ local function update()
         -- (ignore une valeur deja presente avant le run)
         -- Pause a Pioneer 2 : une fois sorti sur le terrain, le chrono s'arrete tant qu'on est a
         -- Pioneer 2 (floor 0), confirme apres 2 s pour ignorer un 0 passager pendant un warp.
-        -- Pas pour les quetes gouvernementales (leur fin est un dialogue a Pioneer 2).
-        if not current.gov and not current.finished and not current.wait_start then
-            if floor == 0 and current.left_p2 then
+        -- Aussi pour les quetes gouvernementales : leur temps s'arrete a l'arrivee a Pioneer 2 pour la
+        -- remise de quete (le dialogue de fin n'est plus compte).
+        if not current.finished and not current.wait_start then
+            if (not in_area) and current.left_p2 then
                 current.p2_seen = current.p2_seen or os.time()
                 if not current.pause_since and os.time() - current.p2_seen >= 2 then
                     current.pause_since = current.p2_seen
@@ -1093,7 +1096,9 @@ local function update()
         if current.wait_start then
             local sc = STARTS.map[qid]
             local hit
-            if sc == "warp" then hit = (floor ~= 0) else hit = (REGS.cond_set(sc) == true) end
+            -- jamais tant qu'on n'est pas dans une zone de combat (Pioneer 2 EP1/EP2/EP4 n'ont pas le meme etage) : certains registres sont deja a > 0 des le
+            -- chargement de la quete (ex. Mop-up) et feraient demarrer le chrono au comptoir
+            if sc == "warp" then hit = in_area else hit = (in_area and REGS.cond_set(sc) == true) end
             if hit then
                 current.start = os.time()
                 current.wait_start = false
@@ -2075,13 +2080,15 @@ end
 -- affichee uniquement pendant un run (meme si Quest Tracker est fermee).
 -- Tu peux la deplacer en la faisant glisser par le timer.
 -- Contenu du timer (utilise par la fenetre en quete et par l'apercu de l'onglet Timer)
-local function timer_body(name, dur, pb)
+local function timer_body(name, dur, pb, paused)
     if TM.name then
         local n = tostring(name or "")
         local jn = QN(n)
         if jn ~= n then n = jn elseif #n > 30 then n = string.sub(n, 1, 29) .. "." end
         imgui.TextColored(ACCENT[1], ACCENT[2], ACCENT[3], 1, n)
     end
+    -- pause (retour a Pioneer 2) : ligne a part pour ne jamais etre coupee avec le nom de la quete
+    if paused then imgui.TextColored(1.0, 0.75, 0.3, 1, T("[pause]")) end
     local r, g, b = 0.95, 0.97, 1.0
     if TM.colors and pb then
         if dur <= pb then r, g, b = 0.55, 1.0, 0.65 else r, g, b = 1.0, 0.62, 0.35 end
@@ -2119,7 +2126,7 @@ local function draw_timer_window()
     }) do
         if pcall(imgui.PushStyleColor, c[1], c[2], c[3], c[4], c[5]) then pushed = pushed + 1 end
     end
-    pcall(imgui.SetNextWindowSize, 250, 96, "FirstUseEver")
+    pcall(imgui.SetNextWindowSize, 340, 130, "FirstUseEver")
     local flags = { "NoTitleBar", "NoScrollbar" }
     if TM.no_move then flags[#flags + 1] = "NoMove" end
     if TM.no_resize then flags[#flags + 1] = "NoResize" end
@@ -2132,7 +2139,7 @@ local function draw_timer_window()
         if current.wait_start then shown_dur = 0 end
         -- Simulator 2.0 : le chrono reste a 0:00 tant que le message "Stage 1" n'est pas apparu
         if free_key(current.name) == "simulator20" and not current.sim_started then shown_dur = 0 end
-        timer_body((current.name or "") .. (current.pause_since and " [pause]" or ""), shown_dur, pb)
+        timer_body(current.name or "", shown_dur, pb, current.pause_since ~= nil)
     end
     imgui.End()
     for _ = 1, pushed do pcall(imgui.PopStyleColor) end
