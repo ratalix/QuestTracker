@@ -58,9 +58,6 @@ local EN = {
     ["Verification en cours..."] = "Checking...",
     ["Dernier run : "] = "Last run : ",
     ["Pas encore de PB"] = "No PB yet",
-    ["[pause]"] = "[paused]",
-    ["Pause du chrono a Pioneer 2"] = "Pause the timer on Pioneer 2",
-    ["Par defaut, le temps passe a Pioneer 2 compte dans le chrono (Time Attack). Cocher pour le mettre en pause."] = "By default, time spent on Pioneer 2 counts (Time Attack). Tick to pause the timer there.",
     ["Reglages du timer"] = "Timer settings",
     ["Apercu"] = "Preview",
     ["Afficher le timer pendant une quete"] = "Show the timer during a quest",
@@ -124,9 +121,6 @@ local JA = {
     ["Verification en cours..."] = "確認中...",
     ["Dernier run : "] = "前回のタイム：",
     ["Pas encore de PB"] = "PBなし",
-    ["[pause]"] = "[一時停止]",
-    ["Pause du chrono a Pioneer 2"] = "ピオニア2でタイマーを一時停止",
-    ["Par defaut, le temps passe a Pioneer 2 compte dans le chrono (Time Attack). Cocher pour le mettre en pause."] = "初期設定ではピオニア2での時間もカウント（タイムアタック用）。ONで一時停止します。",
     ["Reglages du timer"] = "タイマー設定",
     ["Apercu"] = "プレビュー",
     ["Afficher le timer pendant une quete"] = "クエスト中にタイマーを表示",
@@ -519,7 +513,6 @@ local TM = {
     bold = true,      -- chrono plus epais
     no_move = false,  -- verrouiller la position
     no_resize = true, -- verrouiller la taille
-    p2_pause = false, -- option : pause du chrono a Pioneer 2 (desactivee par defaut : le temps a Pioneer 2 compte)
     scale = 1.6,      -- taille du chrono
     alpha = 0,        -- opacite du fond (0-100)
 }
@@ -712,10 +705,10 @@ local function save_settings()
         if v then fl[#fl + 1] = string.format("[%q] = true", k) end
     end
     table.sort(fl)
-    f:write(string.format("return { no_title = %s, mode_pref = %q, profile = %q, ang_level = %d, ang_auto = %s, lang = %q, tm = { enabled = %s, name = %s, pb = %s, colors = %s, bold = %s, no_move = %s, no_resize = %s, p2_pause = %s, scale = %.1f, alpha = %d }, free = { %s } }\n",
+    f:write(string.format("return { no_title = %s, mode_pref = %q, profile = %q, ang_level = %d, ang_auto = %s, lang = %q, tm = { enabled = %s, name = %s, pb = %s, colors = %s, bold = %s, no_move = %s, no_resize = %s, scale = %.1f, alpha = %d }, free = { %s } }\n",
         tostring(no_title), mode_pref, PROFILE, ang_level, tostring(ang_auto), LANG,
         tostring(TM.enabled), tostring(TM.name), tostring(TM.pb), tostring(TM.colors), tostring(TM.bold),
-        tostring(TM.no_move), tostring(TM.no_resize), tostring(TM.p2_pause), TM.scale, TM.alpha, table.concat(fl, ", ")))
+        tostring(TM.no_move), tostring(TM.no_resize), TM.scale, TM.alpha, table.concat(fl, ", ")))
     f:close()
 end
 
@@ -1129,26 +1122,6 @@ local function update()
         -- fin de quete : texte lu a chaque image (le message peut s'afficher tres brievement)
         -- fin de quete par registre : doit etre vu a 0 pendant le run, puis passer a > 0
         -- (ignore une valeur deja presente avant le run)
-        -- Pause a Pioneer 2 : une fois sorti sur le terrain, le chrono s'arrete tant qu'on est a
-        -- Pioneer 2 (floor 0), confirme apres 2 s pour ignorer un 0 passager pendant un warp.
-        -- Aussi pour les quetes gouvernementales : leur temps s'arrete a l'arrivee a Pioneer 2 pour la
-        -- remise de quete (le dialogue de fin n'est plus compte).
-        if not current.finished and not current.wait_start then
-            if at_p2 and TM.p2_pause and current.left_p2 then
-                current.p2_seen = current.p2_seen or os.time()
-                if not current.pause_since and os.time() - current.p2_seen >= 2 then
-                    current.pause_since = current.p2_seen
-                    dbg("PAUSE (Pioneer 2)")
-                end
-            else
-                current.p2_seen = nil
-                if current.pause_since then
-                    current.paused = (current.paused or 0) + (os.time() - current.pause_since)
-                    current.pause_since = nil
-                    dbg("REPRISE etage " .. tostring(floor))
-                end
-            end
-        end
         if current.wait_start then
             local sc = STARTS.map[qid]
             local hit
@@ -2147,7 +2120,6 @@ local function timer_body(name, dur, pb, paused)
         imgui.TextColored(ACCENT[1], ACCENT[2], ACCENT[3], 1, n)
     end
     -- pause (retour a Pioneer 2) : ligne a part pour ne jamais etre coupee avec le nom de la quete
-    if paused then imgui.TextColored(1.0, 0.75, 0.3, 1, T("[pause]")) end
     local r, g, b = 0.95, 0.97, 1.0
     if TM.colors and pb then
         if dur <= pb then r, g, b = 0.55, 1.0, 0.65 else r, g, b = 1.0, 0.62, 0.35 end
@@ -2238,8 +2210,6 @@ local function draw_timer_tab()
     tm_toggle("Chrono plus epais", "bold")
     tm_toggle("No move", "no_move")
     tm_toggle("No resize", "no_resize")
-    tm_toggle("Pause du chrono a Pioneer 2", "p2_pause")
-    imgui.TextDisabled(T("Par defaut, le temps passe a Pioneer 2 compte dans le chrono (Time Attack). Cocher pour le mettre en pause."))
     imgui.Spacing()
     tm_stepper("Taille du chrono", "scale", 0.2, 1.0, 4.0, "%.1f")
     tm_stepper("Opacite du fond (0-100)", "alpha", 10, 0, 100, "%d")
