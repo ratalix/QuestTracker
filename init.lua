@@ -59,6 +59,8 @@ local EN = {
     ["Dernier run : "] = "Last run : ",
     ["Pas encore de PB"] = "No PB yet",
     ["[pause]"] = "[paused]",
+    ["Pause du chrono a Pioneer 2"] = "Pause the timer on Pioneer 2",
+    ["Par defaut, le temps passe a Pioneer 2 compte dans le chrono (Time Attack). Cocher pour le mettre en pause."] = "By default, time spent on Pioneer 2 counts (Time Attack). Tick to pause the timer there.",
     ["Reglages du timer"] = "Timer settings",
     ["Apercu"] = "Preview",
     ["Afficher le timer pendant une quete"] = "Show the timer during a quest",
@@ -123,6 +125,8 @@ local JA = {
     ["Dernier run : "] = "前回のタイム：",
     ["Pas encore de PB"] = "PBなし",
     ["[pause]"] = "[一時停止]",
+    ["Pause du chrono a Pioneer 2"] = "ピオニア2でタイマーを一時停止",
+    ["Par defaut, le temps passe a Pioneer 2 compte dans le chrono (Time Attack). Cocher pour le mettre en pause."] = "初期設定ではピオニア2での時間もカウント（タイムアタック用）。ONで一時停止します。",
     ["Reglages du timer"] = "タイマー設定",
     ["Apercu"] = "プレビュー",
     ["Afficher le timer pendant une quete"] = "クエスト中にタイマーを表示",
@@ -212,6 +216,20 @@ local current = nil  -- run en cours
 local last = nil     -- dernier run terminé (en attente de validation)
 local history = {}   -- historique des runs, du plus ancien au plus récent
 local HISTORY_PATH = "addons/QuestTracker/history.lua"
+-- Profil : "normal" ou "sandbox" (deux comptes differents). Chaque profil a ses propres fichiers
+-- (data.lua / history.lua pour Normal, data_sandbox.lua / history_sandbox.lua pour Sandbox) :
+-- les runs et stats ne se melangent pas. Le profil se choisit avec les boutons en haut de la fenetre.
+local PROFILE = "normal"
+local switch_profile -- definie plus bas
+local function apply_profile_paths()
+    if PROFILE == "sandbox" then
+        SAVE_PATH = "addons/QuestTracker/data_sandbox.lua"
+        HISTORY_PATH = "addons/QuestTracker/history_sandbox.lua"
+    else
+        SAVE_PATH = "addons/QuestTracker/data.lua"
+        HISTORY_PATH = "addons/QuestTracker/history.lua"
+    end
+end
 local HISTORY_MAX = 300           -- nombre de runs gardés dans l'historique
 local list_ep = 0                -- sous-onglet de "Liste de quete" : 0 = Ep1, 1 = Ep2, 2 = Ep4
 local current_tab = "list"    -- onglet affiché : "counters" ou "history"
@@ -501,6 +519,7 @@ local TM = {
     bold = true,      -- chrono plus epais
     no_move = false,  -- verrouiller la position
     no_resize = true, -- verrouiller la taille
+    p2_pause = false, -- option : pause du chrono a Pioneer 2 (desactivee par defaut : le temps a Pioneer 2 compte)
     scale = 1.6,      -- taille du chrono
     alpha = 0,        -- opacite du fond (0-100)
 }
@@ -693,10 +712,10 @@ local function save_settings()
         if v then fl[#fl + 1] = string.format("[%q] = true", k) end
     end
     table.sort(fl)
-    f:write(string.format("return { no_title = %s, mode_pref = %q, ang_level = %d, ang_auto = %s, lang = %q, tm = { enabled = %s, name = %s, pb = %s, colors = %s, bold = %s, no_move = %s, no_resize = %s, scale = %.1f, alpha = %d }, free = { %s } }\n",
-        tostring(no_title), mode_pref, ang_level, tostring(ang_auto), LANG,
+    f:write(string.format("return { no_title = %s, mode_pref = %q, profile = %q, ang_level = %d, ang_auto = %s, lang = %q, tm = { enabled = %s, name = %s, pb = %s, colors = %s, bold = %s, no_move = %s, no_resize = %s, p2_pause = %s, scale = %.1f, alpha = %d }, free = { %s } }\n",
+        tostring(no_title), mode_pref, PROFILE, ang_level, tostring(ang_auto), LANG,
         tostring(TM.enabled), tostring(TM.name), tostring(TM.pb), tostring(TM.colors), tostring(TM.bold),
-        tostring(TM.no_move), tostring(TM.no_resize), TM.scale, TM.alpha, table.concat(fl, ", ")))
+        tostring(TM.no_move), tostring(TM.no_resize), tostring(TM.p2_pause), TM.scale, TM.alpha, table.concat(fl, ", ")))
     f:close()
 end
 
@@ -706,6 +725,8 @@ local function load_settings()
         local ok, t = pcall(chunk)
         if ok and type(t) == "table" then
             no_title = t.no_title == true
+            if t.profile == "sandbox" then PROFILE = "sandbox" end
+            apply_profile_paths()
             if t.ang_auto == false then ang_auto = false end
             if t.lang == "en" or t.lang == "fr" or t.lang == "ja" then LANG = t.lang end
             if type(t.tm) == "table" then
@@ -899,7 +920,9 @@ end
 local P2_FLOORS = { [0] = true, [18] = true, [45] = true }
 
 -- Journal de debug (addons/QuestTracker/debug_log.txt) : evenements du suivi de run uniquement.
+local DEBUG_LOG = false -- mettre true pour ecrire addons/QuestTracker/debug_log.txt (diagnostic)
 local function dbg(msg)
+    if not DEBUG_LOG then return end
     local f = io.open("addons/QuestTracker/debug_log.txt", "a")
     if f then
         f:write(os.date("%H:%M:%S") .. "  " .. msg .. "\n")
@@ -1111,7 +1134,7 @@ local function update()
         -- Aussi pour les quetes gouvernementales : leur temps s'arrete a l'arrivee a Pioneer 2 pour la
         -- remise de quete (le dialogue de fin n'est plus compte).
         if not current.finished and not current.wait_start then
-            if at_p2 and current.left_p2 then
+            if at_p2 and TM.p2_pause and current.left_p2 then
                 current.p2_seen = current.p2_seen or os.time()
                 if not current.pause_since and os.time() - current.p2_seen >= 2 then
                     current.pause_since = current.p2_seen
@@ -2215,6 +2238,8 @@ local function draw_timer_tab()
     tm_toggle("Chrono plus epais", "bold")
     tm_toggle("No move", "no_move")
     tm_toggle("No resize", "no_resize")
+    tm_toggle("Pause du chrono a Pioneer 2", "p2_pause")
+    imgui.TextDisabled(T("Par defaut, le temps passe a Pioneer 2 compte dans le chrono (Time Attack). Cocher pour le mettre en pause."))
     imgui.Spacing()
     tm_stepper("Taille du chrono", "scale", 0.2, 1.0, 4.0, "%.1f")
     tm_stepper("Opacite du fond (0-100)", "alpha", 10, 0, 100, "%d")
@@ -2471,6 +2496,21 @@ local function present()
             end
             pop_theme(n)
         end
+        -- Profil : [Normal] [Sandbox] (donnees separees ; changement impossible pendant un run)
+        imgui.SameLine(0, 24)
+        for i, code in ipairs({ "normal", "sandbox" }) do
+            if i > 1 then imgui.SameLine(0, 6) end
+            local n = 0
+            if PROFILE == code then
+                for _, name in ipairs({ "Button", "ButtonHovered", "ButtonActive" }) do
+                    if pcall(imgui.PushStyleColor, name, TAB_ON[1], TAB_ON[2], TAB_ON[3], TAB_ON[4]) then n = n + 1 end
+                end
+            end
+            if imgui.Button((code == "normal" and "Normal" or "Sandbox") .. "##profile_" .. code) and not current then
+                switch_profile(code)
+            end
+            pop_theme(n)
+        end
         imgui.Spacing()
         imgui.Separator()
         imgui.Spacing()
@@ -2522,11 +2562,8 @@ local function present()
     pop_theme(theme_n)
 end
 
-local function init()
-    load_data()
-    load_settings()
-    load_history()
-    -- Migration : reconstruit les stats Time Attack (runs valides) depuis l'historique
+-- Migration : reconstruit les stats Time Attack (runs valides) depuis l'historique
+local function migrate_stats()
     for _, quests in pairs(data) do
         for _, q in pairs(quests) do
             if q.dtotal == nil then
@@ -2540,6 +2577,28 @@ local function init()
         end
     end
     save()
+end
+
+function switch_profile(p)
+    if p == PROFILE then return end
+    save()
+    save_history()
+    PROFILE = p
+    apply_profile_paths()
+    data = {}
+    for i = #history, 1, -1 do history[i] = nil end
+    last = nil
+    load_data()
+    load_history()
+    migrate_stats()
+    save_settings()
+end
+
+local function init()
+    load_settings() -- d'abord : donne le profil, donc les fichiers a charger
+    load_data()
+    load_history()
+    migrate_stats()
     load_phrases()
     core_mainmenu.add_button("Quest Tracker", function() open = not open end)
     return {
