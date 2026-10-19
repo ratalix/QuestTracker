@@ -753,6 +753,41 @@ local function get_quest_name(id)
     return "Quest " .. id
 end
 
+-- Fin de quete par registre ou interrupteur d'etage (comme psostats) : le script de la quete met un
+-- registre a une valeur > 0 quand l'objectif est rempli. quest_registers.lua donne, par numero de quete,
+-- la condition de fin.
+-- Les registres sont a (pointeur de quete + 0x2C) -> adresse + 4 * numero. Le texte reste en secours.
+local REGS = { map = {} }
+do
+    local ok, chunk = pcall(loadfile, "addons/QuestTracker/quest_registers.lua")
+    if ok and chunk then
+        local ok2, t = pcall(chunk)
+        if ok2 and type(t) == "table" then REGS.map = t end
+    end
+end
+-- true / false : etat de la condition de fin (registre ou interrupteur d'etage) ; nil : quete
+-- sans condition connue ou lecture impossible
+function REGS.is_set(qid)
+    local cond = REGS.map[qid]
+    if not cond then return nil end
+    local ok, v = pcall(function()
+        if type(cond) == "table" then
+            -- interrupteurs d'etage : 32 octets par etage a 0xAC9FA0, lus par mots de 16 bits
+            local sw = cond.switch
+            local w = pso.read_u16(0xAC9FA0 + 32 * cond.floor + 2 * math.floor(sw / 16))
+            local m = (sw % 16 >= 8) and (0x8000 / 2 ^ (sw % 8)) or (0x80 / 2 ^ (sw % 8))
+            return (math.floor(w / m) % 2 == 1) and 1 or 0
+        end
+        local ptr = pso.read_u32(ADDR_QUEST_PTR)
+        if ptr == 0 then return nil end
+        local rp = pso.read_u32(ptr + 0x2C)
+        if rp == 0 then return nil end
+        return pso.read_u16(rp + 4 * cond)
+    end)
+    if not ok or v == nil then return nil end
+    return v > 0
+end
+
 local function resolve_mode()
     if mode_pref ~= "auto" then return mode_pref end
     return (pso.read_u32(ADDR_SOLO_FLAG) == 1) and "solo" or "normal"
@@ -762,8 +797,8 @@ end
 -- Suivi des runs
 ------------------------------------------------------------
 
--- Le run est compté (count + temps) dès qu'il se termine ; le PB n'est
--- mis à jour que si tu valides le run comme "terminé" avec le bouton.
+-- Le run est compté (count + temps) dès qu'il se termine ; il est validé (PB, moyenne)
+-- automatiquement quand la fin de quête est détectée (registre de la quête, sinon texte du jeu).
 -- Coche "run valide" : seulement si la quete est dechargee par le jeu alors qu'on reste
 -- en partie (verifie pendant COMPLETE_CHECK_SECONDS). Retourner a Pioneer 2, faire
 -- "lobby" ou quitter la partie ne valide JAMAIS un run. reason (pourquoi le run s'arrete) :
@@ -1015,6 +1050,17 @@ local function update()
         -- pendant le run (absent avant) pour ignorer un vieux message reste en memoire.
         current.frames = (current.frames or 0) + 1
         -- fin de quete : texte lu a chaque image (le message peut s'afficher tres brievement)
+        -- fin de quete par registre : doit etre vu a 0 pendant le run, puis passer a > 0
+        -- (ignore une valeur deja presente avant le run)
+        if not current.finished then
+            local reg_set = REGS.is_set(qid)
+            if reg_set == false then
+                current.reg_clear = true
+            elseif reg_set and current.reg_clear then
+                current.finished = true
+                current.stop_at = os.time()
+            end
+        end
         local text = read_dialog_text()
         if is_completion_text(text, in_area) then
             if current.text_clear and not current.finished then
@@ -2402,7 +2448,7 @@ local function init()
     core_mainmenu.add_button("Quest Tracker", function() open = not open end)
     return {
         name = "Quest Tracker",
-        version = "1.0",
+        version = "1.1",
         author = "Ratalix",
         description = "Compteur de runs, temps et PB par épisode",
         present = present,

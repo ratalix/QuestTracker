@@ -4,7 +4,7 @@ Quest run tracker for the Ephinea client (psobbaddonplugin, Lua / imgui). Versio
 
 ## Features / Fonctions
 - Run counter, live timer, personal best (PB), average and history per quest, difficulty and episode
-- Automatic detection of quest start and completion (no manual input needed)
+- Automatic detection of quest start and completion (no manual input needed): quest end registers when known, game messages otherwise
 - Time Attack tab: PB / average table per quest, "Quest farm reset" mode (PB and average even for runs you don't finish)
 - Per-quest monster window, Anguish 1/2/3 detection, Simulator 2.0 timing (starts at "Stage 1", stops when Dal Ral Lie dies)
 - Quest list with search, history with invalid-run cleanup, double-confirmation quest reset
@@ -22,7 +22,7 @@ Quest run tracker for the Ephinea client (psobbaddonplugin, Lua / imgui). Versio
 3. A **Quest Tracker** button appears in the main addon menu.
 
 Your data (`data.lua`, `history.lua`, `settings.lua`) is created automatically next to `init.lua`.
-To update: replace `init.lua` (and the other two files if they changed) — your data is kept.
+To update: replace `init.lua` (and the other files if they changed) — your data is kept.
 
 ## Notes
 - Diagnostic files (`ang_scan.txt`, `ang_status.txt`) may be created while playing; they can be deleted.
@@ -36,3 +36,5 @@ To update: replace `init.lua` (and the other two files if they changed) — your
 
 ## License
 MIT — see `LICENSE`.
+
+Quest end registers (`quest_registers.lua`) come from [psostats-client](https://github.com/phelix-/psostats-client) (MIT, phelix-).
