@@ -767,8 +767,7 @@ do
 end
 -- true / false : etat de la condition de fin (registre ou interrupteur d'etage) ; nil : quete
 -- sans condition connue ou lecture impossible
-function REGS.is_set(qid)
-    local cond = REGS.map[qid]
+function REGS.cond_set(cond)
     if not cond then return nil end
     local ok, v = pcall(function()
         if type(cond) == "table" then
@@ -786,6 +785,18 @@ function REGS.is_set(qid)
     end)
     if not ok or v == nil then return nil end
     return v > 0
+end
+function REGS.is_set(qid) return REGS.cond_set(REGS.map[qid]) end
+
+-- Debut de quete (quest_starts.lua, extrait de psostats) : registre, interrupteur d'etage ou "warp"
+-- (arrivee sur le terrain). Sans entree, le chrono demarre quand la quete est prise au comptoir.
+local STARTS = { map = {} }
+do
+    local ok, chunk = pcall(loadfile, "addons/QuestTracker/quest_starts.lua")
+    if ok and chunk then
+        local ok2, t = pcall(chunk)
+        if ok2 and type(t) == "table" then STARTS.map = t end
+    end
 end
 
 local function resolve_mode()
@@ -880,10 +891,20 @@ local function credit_validated(q, dur)
     if not q.vbest or dur < q.vbest then q.vbest = dur end
 end
 
+-- Temps ecoule d'un run, sans les passages a Pioneer 2 (pause) une fois sorti pour la premiere fois
+local function run_elapsed(run)
+    local t = run.stop_at or os.time()
+    local paused = run.paused or 0
+    if run.pause_since then paused = paused + math.max(0, t - run.pause_since) end
+    return t - run.start - paused
+end
+
 local function end_run(reason)
     if not current then return end
     local run = current
     current = nil
+    -- debut jamais detecte (ex. quete quittee avant le terrain) : on retombe sur la prise au comptoir
+    if run.wait_start then run.start = run.load_at or run.start; run.wait_start = false end
     -- Filet de securite : si on est parti si vite que le message de fin n'a pas ete vu, on relit une
     -- derniere fois le texte (le message peut rester en memoire un instant apres le depart)
     if not run.finished and run.text_clear and not run.dead and is_completion_text(read_dialog_text(), true) then
@@ -899,7 +920,7 @@ local function end_run(reason)
         run.stop_at = run.p2_at
     end
     -- le chrono s'arrete au moment ou la fin de quete a ete detectee
-    local dur = (run.stop_at or os.time()) - run.start
+    local dur = run_elapsed(run)
     -- on enregistre sans PB, puis le bouton "Terminée" peut ajouter le PB
     data[run.ep] = data[run.ep] or {}
     local key = run_key(run.id, run.diff, run.mode, run.ang)
@@ -1052,6 +1073,32 @@ local function update()
         -- fin de quete : texte lu a chaque image (le message peut s'afficher tres brievement)
         -- fin de quete par registre : doit etre vu a 0 pendant le run, puis passer a > 0
         -- (ignore une valeur deja presente avant le run)
+        -- Pause a Pioneer 2 : une fois sorti sur le terrain, le chrono s'arrete tant qu'on est a
+        -- Pioneer 2 (floor 0), confirme apres 2 s pour ignorer un 0 passager pendant un warp.
+        -- Pas pour les quetes gouvernementales (leur fin est un dialogue a Pioneer 2).
+        if not current.gov and not current.finished and not current.wait_start then
+            if floor == 0 and current.left_p2 then
+                current.p2_seen = current.p2_seen or os.time()
+                if not current.pause_since and os.time() - current.p2_seen >= 2 then
+                    current.pause_since = current.p2_seen
+                end
+            else
+                current.p2_seen = nil
+                if current.pause_since then
+                    current.paused = (current.paused or 0) + (os.time() - current.pause_since)
+                    current.pause_since = nil
+                end
+            end
+        end
+        if current.wait_start then
+            local sc = STARTS.map[qid]
+            local hit
+            if sc == "warp" then hit = (floor ~= 0) else hit = (REGS.cond_set(sc) == true) end
+            if hit then
+                current.start = os.time()
+                current.wait_start = false
+            end
+        end
         if not current.finished then
             local reg_set = REGS.is_set(qid)
             if reg_set == false then
@@ -1153,6 +1200,11 @@ local function update()
         }
         -- quete gouvernementale ("1-1:Planet Ragol", "5-1:Test/VR Temple 1"...)
         current.gov = string.match(current.name or "", "^%d+%-%d+:") ~= nil
+        -- le chrono attend le declencheur de debut (registre / interrupteur / arrivee sur le terrain)
+        if STARTS.map[qid] ~= nil then
+            current.wait_start = true
+            current.load_at = current.start
+        end
     end
 end
 
@@ -2076,10 +2128,11 @@ local function draw_timer_window()
         local q = data[current.ep] and data[current.ep][run_key(current.id, current.diff, current.mode, current.ang)]
         local pb = q and (q.vbest or q.best) or nil
         if q and q.fbest and FREE[free_key(current.name)] then pb = q.fbest end
-        local shown_dur = (current.stop_at or os.time()) - current.start
+        local shown_dur = run_elapsed(current)
+        if current.wait_start then shown_dur = 0 end
         -- Simulator 2.0 : le chrono reste a 0:00 tant que le message "Stage 1" n'est pas apparu
         if free_key(current.name) == "simulator20" and not current.sim_started then shown_dur = 0 end
-        timer_body(current.name, shown_dur, pb)
+        timer_body((current.name or "") .. (current.pause_since and " [pause]" or ""), shown_dur, pb)
     end
     imgui.End()
     for _ = 1, pushed do pcall(imgui.PopStyleColor) end
