@@ -893,6 +893,22 @@ local function credit_validated(q, dur)
     if not q.vbest or dur < q.vbest then q.vbest = dur end
 end
 
+-- Etages de Pioneer 2 (releves dans les logs : EP1 = 0, EP2 = 18, EP4 = 45). Sert au depart automatique
+-- et a la pause : on ne se base PAS sur la liste des zones de combat, car certaines zones de quete
+-- (arenes de boss VR...) n'y sont pas.
+local P2_FLOORS = { [0] = true, [18] = true, [45] = true }
+
+-- Journal de debug (addons/QuestTracker/debug_log.txt) : evenements du suivi de run uniquement.
+local function dbg(msg)
+    local f = io.open("addons/QuestTracker/debug_log.txt", "a")
+    if f then
+        f:write(os.date("%H:%M:%S") .. "  " .. msg .. "\n")
+        f:close()
+    end
+end
+
+dbg("=== QuestTracker charge - build 4 (run garde si lobby=true et meme quete) ===")
+
 -- Temps ecoule d'un run, sans les passages a Pioneer 2 (pause) une fois sorti pour la premiere fois
 local function run_elapsed(run)
     local t = run.stop_at or os.time()
@@ -904,6 +920,8 @@ end
 local function end_run(reason)
     if not current then return end
     local run = current
+    dbg(string.format("FIN run id=%s raison=%s finished=%s wait_start=%s dur=%s", tostring(run.id), tostring(reason),
+        tostring(run.finished), tostring(run.wait_start), tostring(os.time() - run.start)))
     current = nil
     -- debut jamais detecte (ex. quete quittee avant le terrain) : on retombe sur la prise au comptoir
     if run.wait_start then run.start = run.load_at or run.start; run.wait_start = false end
@@ -1060,9 +1078,22 @@ local function update()
     local floor = pso.read_u32(ADDR_LOCATION)
     local lobby = pso.read_u32(ADDR_LOCATION + 4) == 0xF
     if lobby then ANGS.cur = nil end -- le message Anguish n'apparait qu'a la creation de la partie
-    local in_game = (not lobby) and pso.read_u32(ADDR_PLAYER_COUNT) ~= 0
+    local pcount = pso.read_u32(ADDR_PLAYER_COUNT)
+    -- Le nombre de joueurs peut passer a 0 un instant (attente "All members must be here..." avant un
+    -- warp de boss VR) alors que la quete est toujours chargee : on ne coupe pas le run dans ce cas.
+    -- Pendant l'attente d'un warp de boss VR (Respective Tomorrow...), le jeu met l'indicateur "lobby"
+    -- a vrai alors que la quete est toujours chargee : tant que le meme numero de quete est charge, on
+    -- reste en partie. Un vrai retour au lobby decharge la quete (qid = 0).
+    local same_quest = (current ~= nil and qid ~= 0 and qid == current.id)
+    local in_game = same_quest or ((not lobby) and pcount ~= 0)
     local active = in_game and qid ~= 0
     local in_area = AREA_FLOORS[floor] == true
+    local at_p2 = P2_FLOORS[floor] == true
+    if current and floor ~= current.dbg_floor then
+        current.dbg_floor = floor
+        dbg(string.format("etage %d  qid=%s actif=%s p2=%s zone=%s lobby=%s joueurs=%s", floor, tostring(qid),
+            tostring(active), tostring(at_p2), tostring(in_area), tostring(lobby), tostring(pcount)))
+    end
 
     if not active then blocked_id = nil end
 
@@ -1080,16 +1111,18 @@ local function update()
         -- Aussi pour les quetes gouvernementales : leur temps s'arrete a l'arrivee a Pioneer 2 pour la
         -- remise de quete (le dialogue de fin n'est plus compte).
         if not current.finished and not current.wait_start then
-            if (not in_area) and current.left_p2 then
+            if at_p2 and current.left_p2 then
                 current.p2_seen = current.p2_seen or os.time()
                 if not current.pause_since and os.time() - current.p2_seen >= 2 then
                     current.pause_since = current.p2_seen
+                    dbg("PAUSE (Pioneer 2)")
                 end
             else
                 current.p2_seen = nil
                 if current.pause_since then
                     current.paused = (current.paused or 0) + (os.time() - current.pause_since)
                     current.pause_since = nil
+                    dbg("REPRISE etage " .. tostring(floor))
                 end
             end
         end
@@ -1098,10 +1131,11 @@ local function update()
             local hit
             -- jamais tant qu'on n'est pas dans une zone de combat (Pioneer 2 EP1/EP2/EP4 n'ont pas le meme etage) : certains registres sont deja a > 0 des le
             -- chargement de la quete (ex. Mop-up) et feraient demarrer le chrono au comptoir
-            if sc == "warp" then hit = in_area else hit = (in_area and REGS.cond_set(sc) == true) end
+            if sc == "warp" then hit = not at_p2 else hit = ((not at_p2) and REGS.cond_set(sc) == true) end
             if hit then
                 current.start = os.time()
                 current.wait_start = false
+                dbg("DEPART detecte etage " .. tostring(floor))
             end
         end
         if not current.finished then
@@ -1210,6 +1244,8 @@ local function update()
             current.wait_start = true
             current.load_at = current.start
         end
+        dbg(string.format("DEBUT run id=%s nom=%s etage=%d wait_start=%s", tostring(qid), tostring(current.name), floor,
+            tostring(current.wait_start)))
     end
 end
 
