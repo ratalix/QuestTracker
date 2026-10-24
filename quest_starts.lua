@@ -139,4 +139,9 @@ return {
     [11002] = 110, -- EP4 Sacred Groundz
     [1675] = "warp", -- EP4 Hollow Wasteland: Wilderness
     [1676] = "warp", -- EP4 Hollow Wasteland: Desert
+    [1833] = 102, -- EP1 Virtual Limits 1 ("Begin Simulation!")
+    [1834] = 102, -- EP1 Virtual Limits 2 ("Begin Simulation!")
+    [709] = "warp", -- EP4 Point of Disaster (depart au premier terrain atteint)
+    [237] = "warp", -- EP1 MAXIMUM ATTACK 1 Ver2 (depart a l'arrivee sur le terrain)
+    [1785] = 191, -- EP1 Solstice Snafu (depart quand le timer de la quete du jeu demarre, reg 191)
 }

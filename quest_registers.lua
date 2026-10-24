@@ -20,6 +20,7 @@ return {
     [144] = { floor = 10, switch = 31 }, -- EP1 Maximum Attack 4 -1A-
     [145] = { floor = 10, switch = 32 }, -- EP1 Maximum Attack 4 -1B-
     [146] = 254, -- EP1 Maximum Attack 4 -1C-
+    [147] = 50, -- EP1 C1AM
     [161] = 101, -- EP1 Tyrell's Ego
     [231] = 98, -- EP2 Respective Tomorrow
     [233] = 254, -- EP2 Phantasmal World #1
@@ -48,14 +49,29 @@ return {
     [901] = { floor = 11, switch = 3 }, -- EP2 Christmas Fiasco Episode 2
     [902] = { floor = 8, switch = 3 }, -- EP4 Christmas Fiasco Episode 4
     [907] = 99, -- EP1 Forsaken Friends
+    [930] = 50, -- EP1 Maximum Attack E: Forest
+    [931] = 50, -- EP1 Maximum Attack E: Caves
+    [932] = 50, -- EP1 Maximum Attack E: Mines
+    [933] = 50, -- EP1 Maximum Attack E: Ruins
+    [934] = 50, -- EP2 Maximum Attack E: Temple
+    [935] = 50, -- EP2 Maximum Attack E: Space
+    [936] = 50, -- EP2 Maximum Attack E: CCA
+    [937] = 50, -- EP2 Maximum Attack E: Seabed
+    [938] = 50, -- EP2 Maximum Attack E: Tower
+    [939] = 50, -- EP4 Maximum Attack E: Crater
+    [940] = 50, -- EP4 Maximum Attack E: Desert
     [942] = 254, -- EP1 Maximum Attack E: Episode 1
     [943] = 254, -- EP2 Maximum Attack E: VR
     [944] = 254, -- EP2 Maximum Attack E: Gal Da Val
     [945] = 254, -- EP4 Maximum Attack E: Episode 4
+    [960] = 50, -- EP1 Maximum Attack E: Forest -MM-
+    [961] = 50, -- EP2 August Atrocity #2
+    [962] = 50, -- EP1 Maximum Attack E: Mines -MM-
+    [963] = 50, -- EP1 Maximum Attack E: Ruins -MM-
     [1303] = 254, -- EP1 Random Attack Xrd Stage
     [1309] = 89, -- EP2 Gal Da Val's Darkness
     [1319] = 121, -- EP2 The Military Strikes Back
-    [1321] = 12, -- A New Hope : mort d'Olga Flow (message "genetic sample from Olga Flow's body"). Fin des credits = registre 146
+    [1321] = 16, -- A New Hope : "Congratulations!" apres Celestial Pathway = registre 16 (la mort d'Olga Flow = registre 12, avant la suite dans VR Temple Beta)
     [1666] = 0, -- EP1 Hollow Battlefield: Forest
     [1667] = 0, -- EP1 Hollow Battlefield: Cave
     [1668] = 0, -- EP1 Hollow Battlefield: Mine
@@ -75,6 +91,8 @@ return {
     [1765] = 254, -- EP2 Sweep-up Operation #5
     [1766] = 254, -- EP2 Sweep-up Operation #6
     [1767] = 254, -- EP2 Sweep-up Operation #7
+    [1768] = 254, -- EP2 Sweep-up Operation #8
+    [1769] = 254, -- EP2 Sweep-up Operation #9
     [1770] = 254, -- EP4 Sweep-up Operation #10
     [1771] = 254, -- EP4 Sweep-up Operation #11
     [1772] = 254, -- EP4 Sweep-up Operation #12
@@ -121,4 +139,8 @@ return {
     [1873] = 50, -- EP1 Coetaneous Resolve
     [1960] = 254, -- EP1 Subterranean Patrol #1
     [11002] = 155, -- EP4 Sacred Groundz
+    [1833] = 254, -- EP1 Virtual Limits 1 ("Simulation Complete!")
+    [1834] = 254, -- EP1 Virtual Limits 2 ("Simulation Complete!")
+    [709] = 255, -- EP4 Point of Disaster ("You've cleared the quest!")
+    [1785] = 254, -- EP1 Solstice Snafu ("Mission complete!")
 }

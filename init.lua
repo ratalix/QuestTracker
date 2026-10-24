@@ -17,6 +17,19 @@ local DIFF_NAMES = { [0] = "N", [1] = "H", [2] = "VH", [3] = "Ult" }
 -- Langue de l'interface : "fr" ou "en" (boutons FR / EN en haut). T() traduit un texte francais.
 local LANG = "fr"
 local EN = {
+    ["un joueur a quitte ou s'est deconnecte pendant la quete"] = "a player left or disconnected during the quest",
+    ["un joueur a rejoint la partie pendant la quete"] = "a player joined during the quest",
+    ["Personnage"] = "Character",
+    ["Personnage (solo) :"] = "Character (solo):",
+    ["Tous"] = "All",
+    ["Joueurs"] = "Players",
+    ["Solo"] = "Solo",
+    ["%d joueurs"] = "%d players",
+    ["Lecture automatique :"] = "Auto read:",
+    ["Ragol Boost Road : les 3 quetes de la semaine"] = "Ragol Boost Road: this week's 3 quests",
+    ["Semaine depuis le %s | remise a zero dans %dj %02dh %02dmin (dimanche 00:00 UTC)"] = "Week since %s | resets in %dd %02dh %02dmin (Sunday 00:00 UTC)",
+    ["(vide) : cherche une quete ci-dessous"] = "(empty): search for a quest below",
+    ["Tape le nom ou l'abreviation (ex : en4, ao3), puis clique la quete boostee."] = "Type the name or abbreviation (e.g. en4, ao3), then click the boosted quest.",
     ["Auto : lit le niveau dans le bloc Anguish affiche par le jeu. Sinon reglage manuel."] = "Auto: reads the level from the Anguish block shown by the game. Otherwise set it manually.",
     ["Vider les non valides ?"] = "Clear invalid runs?",
     ["Vider les non valides"] = "Clear invalid runs",
@@ -27,7 +40,7 @@ local EN = {
     ["Derniere confirmation : compteurs, temps et PB seront effaces. Sur ?"] = "Final confirmation: counters, times and PBs will be erased. Sure?",
     ["Oui, tout effacer"] = "Yes, erase everything",
     ["Quete farm reset"] = "Farm reset quest",
-    ["(runs non termines inclus)"] = "(unfinished runs included)",
+    ["(runs non termines uniquement)"] = "(unfinished runs only)",
         ["lu : aucun"] = "read: none",
     ["lu : Ang"] = "read: Ang",
     ["Recherche :"] = "Search :",
@@ -78,8 +91,14 @@ local EN = {
     ["Tout remettre a 0 ?"] = "Reset everything to 0?",
     ["Liste de quete"] = "Quest list",
     ["Historique"] = "History",
+    ["Total de monstres dans la quete : "] = "Total monsters in the quest: ",
 }
 local JA = {
+    ["Personnage"] = "キャラクター",
+    ["Personnage (solo) :"] = "キャラクター（ソロ）：",
+    ["Joueurs"] = "プレイヤー数",
+    ["Solo"] = "ソロ",
+    ["%d joueurs"] = "%d人",
     ["Auto : lit le niveau dans le bloc Anguish affiche par le jeu. Sinon reglage manuel."] = "自動：ゲームが表示するAnguishのレベルを読み取ります。それ以外は手動で設定します。",
     ["Vider les non valides ?"] = "無効な記録を削除しますか？",
     ["Vider les non valides"] = "無効な記録を削除",
@@ -90,7 +109,7 @@ local JA = {
     ["Derniere confirmation : compteurs, temps et PB seront effaces. Sur ?"] = "最終確認：回数・タイム・PBがすべて消去されます。よろしいですか？",
     ["Oui, tout effacer"] = "はい、すべて消去",
     ["Quete farm reset"] = "周回リセットクエスト",
-    ["(runs non termines inclus)"] = "（未完了の記録を含む）",
+    ["(runs non termines uniquement)"] = "（未完了の記録のみ）",
     ["lu : aucun"] = "検出：なし",
     ["lu : Ang"] = "検出：アングィッシュ",
     ["Recherche :"] = "検索：",
@@ -141,6 +160,7 @@ local JA = {
     ["Tout remettre a 0 ?"] = "すべて0にリセットしますか？",
     ["Liste de quete"] = "クエスト一覧",
     ["Historique"] = "履歴",
+    ["Total de monstres dans la quete : "] = "クエスト内のモンスター総数：",
     ["One Person"] = "ワンパーソン",
     ["Normal"] = "ノーマル",
     ["One Person Mode"] = "ワンパーソンモード",
@@ -520,8 +540,62 @@ local ANG_MAX = 3        -- Anguish : 3 niveaux (Ang1 a Ang3)
 local ang_auto = true   -- Anguish lu automatiquement dans le texte affiche par le jeu
 local ANG_BUF = 0x10CDC2BE  -- texte "Anguish N" du bloc affiche par le jeu (UTF-16)
 local ang_level = 0      -- Anguish actif : 0 = aucun, 1..3 (a regler a la main avec le menu "Anguish")
-local function run_key(id, diff, mode, ang)
-    return id .. "_" .. diff .. "_" .. mode .. ((ang or 0) > 0 and ("_a" .. ang) or "")
+local function run_key(id, diff, mode, ang, pc, ch)
+    return id .. "_" .. diff .. "_" .. mode .. ((ang or 0) > 0 and ("_a" .. ang) or "") .. ((pc or 0) > 1 and ("_p" .. pc) or "")
+        .. (((pc or 0) < 2 and ch and ch ~= "") and ("_c" .. ch) or "")
+end
+-- Personnage joue : "Nom|classe|ID" (nom, classe HUmar..., Section ID du personnage), lu dans les donnees du joueur ; "" si illisible
+local CHAR_CLASSES = { [0] = "HUmar", "HUnewearl", "HUcast", "RAmar", "RAcast", "RAcaseal", "FOmarl", "FOnewm", "FOnewearl", "HUcaseal", "FOmar", "RAmarl" }
+local CHAR_IDS = { [0] = "Viridia", "Greenill", "Skyly", "Bluefull", "Purplenum", "Pinkal", "Redria", "Oran", "Yellowboze", "Whitill" }
+local function my_char_name()
+    local ok, ident = pcall(function()
+        local index = pso.read_u32(0x00A9C4F4)
+        local player = pso.read_u32(0x00A94254 + 4 * index)
+        if player == 0 then return nil end
+        local name = pso.read_wstr(player + 0x428, 24)
+        if string.sub(name, 1, 1) == "\t" then name = string.sub(name, 3) end
+        name = name:gsub("[%c|]", "")
+        if #name == 0 then return nil end
+        return name .. "|" .. pso.read_u8(player + 0x961) .. "|" .. pso.read_u8(player + 0x960)
+    end)
+    if ok and type(ident) == "string" then return ident end
+    return ""
+end
+-- "Nom|2|5" -> nom, classe, ID
+local function char_parts(ident)
+    local name, cl, sid = string.match(ident or "", "^(.-)|(%d+)|(%d+)$")
+    if not name then return ident or "", nil, nil end
+    return name, CHAR_CLASSES[tonumber(cl)] or "?", CHAR_IDS[tonumber(sid)] or "?"
+end
+-- Texte complet : "Ratalix (RAmarl, Pinkal)"
+local function char_text(ident)
+    local name, cl, sid = char_parts(ident)
+    if cl then return string.format("%s (%s, %s)", name, cl, sid) end
+    return name
+end
+-- Affichage en colonne : nom en blanc, classe et ID en couleur
+local function draw_char_cell(ident)
+    local name, cl, sid = char_parts(ident)
+    imgui.Text(#name > 12 and (string.sub(name, 1, 11) .. "..") or name)
+    if cl then
+        imgui.SameLine(0, 6)
+        imgui.TextColored(0.6, 0.85, 1.0, 1, cl)
+        imgui.SameLine(0, 6)
+        imgui.TextColored(1.0, 0.85, 0.4, 1, sid)
+    end
+end
+-- Texte propre du nombre de joueurs : "Solo", "2 joueurs"...
+local function players_label(pc)
+    if (pc or 0) >= 2 then return string.format(T("%d joueurs"), pc) end
+    return T("Solo")
+end
+-- Nombre de joueurs de la partie : 0 = seul, sinon 2 a 4
+local function party_size()
+    local ok, n = pcall(pso.read_u32, ADDR_PLAYER_COUNT)
+    n = ok and tonumber(n) or 0
+    if n >= 2 and n <= 4 then return n end
+    if n > 4 then return 4 end
+    return 0
 end
 local mode_pref = "auto"   -- "auto", "solo" (One Person) ou "normal"
 local MODE_NAMES = { solo = "One Person", normal = "Normal" }
@@ -537,9 +611,9 @@ local function save()
     for ep, quests in pairs(data) do
         f:write(string.format("[%d]={\n", ep))
         for key, q in pairs(quests) do
-            f:write(string.format("[%q]={id=%d,diff=%d,count=%d,best=%s,total=%d,name=%q,mode=%q,done=%d,dtotal=%d,vbest=%s,ang=%d,fcount=%d,ftotal=%d,fbest=%s},\n",
+            f:write(string.format("[%q]={id=%d,diff=%d,count=%d,best=%s,total=%d,name=%q,mode=%q,done=%d,dtotal=%d,vbest=%s,ang=%d,pc=%d,ch=%q,fcount=%d,ftotal=%d,fbest=%s},\n",
                 key, q.id, q.diff, q.count, q.best and tostring(q.best) or "nil", q.total, q.name,
-                q.mode or "normal", q.done or 0, q.dtotal or 0, q.vbest and tostring(q.vbest) or "nil", q.ang or 0,
+                q.mode or "normal", q.done or 0, q.dtotal or 0, q.vbest and tostring(q.vbest) or "nil", q.ang or 0, q.pc or 0, q.ch or "",
                 q.fcount or 0, q.ftotal or 0, q.fbest and tostring(q.fbest) or "nil"))
         end
         f:write("},\n")
@@ -561,7 +635,21 @@ local function load_data()
                     q.mode = q.mode or "normal"
                     q.done = q.done or 0
                     q.ang = q.ang or 0
-                    fixed[run_key(q.id, q.diff, q.mode, q.ang)] = q
+                    q.pc = q.pc or 0
+                    q.ch = q.ch or ""
+                    local k = run_key(q.id, q.diff, q.mode, q.ang, q.pc, q.ch)
+                    local o = fixed[k]
+                    if o then
+                        -- deux entrees pour la meme quete : on les fusionne (avant, la derniere ecrasait l'autre et le PB pouvait remonter)
+                        for _, f in ipairs({ "count", "total", "done", "dtotal", "fcount", "ftotal" }) do
+                            o[f] = (o[f] or 0) + (q[f] or 0)
+                        end
+                        for _, f in ipairs({ "best", "vbest", "fbest" }) do
+                            if q[f] and (not o[f] or q[f] < o[f]) then o[f] = q[f] end
+                        end
+                    else
+                        fixed[k] = q
+                    end
                 end
                 data[ep] = fixed
             end
@@ -574,9 +662,9 @@ local function save_history()
     if not f then return end
     f:write("return {\n")
     for _, h in ipairs(history) do
-        f:write(string.format("{at=%d,ep=%d,diff=%d,mode=%q,name=%q,dur=%d,ok=%s,why=%q,ang=%d},\n",
+        f:write(string.format("{at=%d,ep=%d,diff=%d,mode=%q,name=%q,dur=%d,ok=%s,why=%q,ang=%d,pc=%d,ch=%q},\n",
             h.at, h.ep, h.diff, h.mode or "normal", h.name, h.dur,
-            h.ok == nil and "nil" or tostring(h.ok), h.why or "", h.ang or 0))
+            h.ok == nil and "nil" or tostring(h.ok), h.why or "", h.ang or 0, h.pc or 0, h.ch or ""))
     end
     f:write("}\n")
     f:close()
@@ -595,6 +683,8 @@ local function load_history()
             h.ep = h.ep or 0
             h.diff = h.diff or 0
             h.ang = h.ang or 0
+            h.pc = h.pc or 0
+            h.ch = h.ch or ""
             table.insert(history, h)
         end
     end
@@ -815,6 +905,9 @@ do
     end
 end
 
+-- Decalage (en secondes) a ajouter au depart pour caler le chrono sur celui du jeu (le registre passe a 1 apres la 1re seconde)
+STARTS.offset = { [1785] = 1 }  -- Solstice Snafu
+
 local function resolve_mode()
     if mode_pref ~= "auto" then return mode_pref end
     return (pso.read_u32(ADDR_SOLO_FLAG) == 1) and "solo" or "normal"
@@ -898,6 +991,8 @@ local WHY_TEXT = {
     died = "mort pendant le run (retour a Pioneer 2)",
     switched = "autre quete lancee",
     left_fast = "partie quittee juste apres la fin",
+    member_left = "un joueur a quitte ou s'est deconnecte pendant la quete",
+    member_joined = "un joueur a rejoint la partie pendant la quete",
 }
 
 -- Time Attack : seuls les runs valides (quete rendue) comptent pour le PB et la moyenne
@@ -933,6 +1028,13 @@ local function run_elapsed(run)
     return t - run.start - paused
 end
 
+-- Suivi libre : seuls les runs NON termines comptent (les runs valides vont dans la liste normale)
+local function free_credit(q, dur)
+    q.fcount = (q.fcount or 0) + 1
+    q.ftotal = (q.ftotal or 0) + dur
+    if not q.fbest or dur < q.fbest then q.fbest = dur end
+end
+
 local function end_run(reason)
     if not current then return end
     local run = current
@@ -959,20 +1061,16 @@ local function end_run(reason)
     local dur = run_elapsed(run)
     -- on enregistre sans PB, puis le bouton "Terminée" peut ajouter le PB
     data[run.ep] = data[run.ep] or {}
-    local key = run_key(run.id, run.diff, run.mode, run.ang)
+    local key = run_key(run.id, run.diff, run.mode, run.ang, run.pc, run.ch)
     local q = data[run.ep][key] or {
         id = run.id, diff = run.diff, count = 0, total = 0,
-        name = run.name, mode = run.mode, ang = run.ang or 0,
+        name = run.name, mode = run.mode, ang = run.ang or 0, pc = run.pc or 0, ch = run.ch or "",
     }
     q.name = run.name -- met à jour les anciens "Quest N"
     q.count = q.count + 1
     q.total = q.total + dur
     -- suivi libre : tous les runs (meme non termines) comptent a part, sans toucher aux runs valides
-    if FREE[free_key(run.name)] and dur >= FREE_MIN and not run.dead then
-        q.fcount = (q.fcount or 0) + 1
-        q.ftotal = (q.ftotal or 0) + dur
-        if not q.fbest or dur < q.fbest then q.fbest = dur end
-    end
+    local free_ok = FREE[free_key(run.name)] and dur >= FREE_MIN and not run.dead
     data[run.ep][key] = q
     save()
     -- completed : nil = verification en cours (quete dechargee en jeu), false = non valide.
@@ -989,12 +1087,20 @@ local function end_run(reason)
     elseif reason ~= "quest" then
         completed = false
     end
+    -- un joueur parti / deconnecte (ou arrive en quete gouvernementale) pendant le run : run invalide
+    if run.invalid_reason then
+        completed = false
+        why = run.invalid_reason
+    end
     if completed then
         credit_validated(q, dur)
         save()
+    elseif completed == false and free_ok then
+        free_credit(q, dur)
+        save()
     end
     local entry = {
-        at = run.start, ep = run.ep, diff = run.diff, mode = run.mode, ang = run.ang or 0,
+        at = run.start, ep = run.ep, diff = run.diff, mode = run.mode, ang = run.ang or 0, pc = run.pc or 0, ch = run.ch or "",
         name = run.name, dur = dur, ok = completed, why = why,
     }
     history[#history + 1] = entry
@@ -1004,7 +1110,7 @@ local function end_run(reason)
         ep = run.ep, key = key, dur = dur, validated = false,
         completed = completed,
         why = why,
-        entry = entry,
+        entry = entry, free_ok = free_ok,
         verify_at = os.time() + COMPLETE_CHECK_SECONDS,
     }
 end
@@ -1017,6 +1123,10 @@ local function check_last_completed(in_game)
     if not in_game then
         last.completed = false
         last.why = "left_fast"
+        if last.free_ok then
+            local fq = data[last.ep] and data[last.ep][last.key]
+            if fq then free_credit(fq, last.dur); save() end
+        end
         if last.entry then
             last.entry.ok = false
             last.entry.why = "left_fast"
@@ -1119,17 +1229,46 @@ local function update()
         -- Texte de dialogue lu toutes les ~0,25 s. Le message de fin de quete doit APPARAITRE
         -- pendant le run (absent avant) pour ignorer un vieux message reste en memoire.
         current.frames = (current.frames or 0) + 1
+
+        -- Joueurs presents : un depart / une deconnexion invalide le run ; une arrivee l'invalide en quete gouvernementale.
+        -- Avant le depart reel (Pioneer 2 / attente du declencheur) on ne fait que memoriser le nombre de joueurs.
+        do
+            local n = tonumber(pso.read_u32(ADDR_PLAYER_COUNT)) or 0
+            if n > 0 then
+                if (not current.left_p2) or current.wait_start then
+                    current.n0 = n
+                    current.n_since = nil
+                elseif not current.invalid_reason and not current.finished and in_area and current.n0 and n ~= current.n0 then
+                    current.n_since = current.n_since or os.time()
+                    if os.time() - current.n_since >= 2 then -- ignore les variations d'une seconde
+                        if n < current.n0 then
+                            current.invalid_reason = "member_left"
+                        elseif current.gov then
+                            current.invalid_reason = "member_joined"
+                        else
+                            current.n0 = n -- arrivee hors quete gouvernementale : le run reste valide
+                        end
+                        current.n_since = nil
+                    end
+                else
+                    current.n_since = nil
+                end
+            end
+        end
         -- fin de quete : texte lu a chaque image (le message peut s'afficher tres brievement)
         -- fin de quete par registre : doit etre vu a 0 pendant le run, puis passer a > 0
         -- (ignore une valeur deja presente avant le run)
         if current.wait_start then
-            local sc = STARTS.map[qid]
+            -- quetes gouvernementales (1-1... 9-8) : depart a l'arrivee sur le terrain, sauf declencheur connu
+            local sc = STARTS.map[qid] or (current.gov and "warp" or nil)
             local hit
             -- jamais tant qu'on n'est pas dans une zone de combat (Pioneer 2 EP1/EP2/EP4 n'ont pas le meme etage) : certains registres sont deja a > 0 des le
             -- chargement de la quete (ex. Mop-up) et feraient demarrer le chrono au comptoir
             if sc == "warp" then hit = not at_p2 else hit = ((not at_p2) and REGS.cond_set(sc) == true) end
             if hit then
-                current.start = os.time()
+                current.start = os.time() - (STARTS.offset[qid] or 0)
+                current.pc = party_size()
+                current.ch = (current.pc < 2) and my_char_name() or ""
                 current.wait_start = false
                 dbg("DEPART detecte etage " .. tostring(floor))
             end
@@ -1232,11 +1371,13 @@ local function update()
             section = pso.read_u32(ADDR_SECTION_ID),
             mode = resolve_mode(),
             ang = (pso.read_u32(ADDR_DIFFICULTY) == 3) and ang_current() or 0, -- Anguish : Ultimate uniquement
+            pc = party_size(), -- joueurs presents (relu au depart reel de la quete)
         }
+        current.ch = (current.pc < 2) and my_char_name() or "" -- personnage : seulement en solo
         -- quete gouvernementale ("1-1:Planet Ragol", "5-1:Test/VR Temple 1"...)
         current.gov = string.match(current.name or "", "^%d+%-%d+:") ~= nil
         -- le chrono attend le declencheur de debut (registre / interrupteur / arrivee sur le terrain)
-        if STARTS.map[qid] ~= nil then
+        if STARTS.map[qid] ~= nil or current.gov then
             current.wait_start = true
             current.load_at = current.start
         end
@@ -1794,6 +1935,19 @@ local function draw_mobs_window()
             for _, a in ipairs(entry.areas) do
                 if a[1] ~= "Total" then zones[#zones + 1] = a end
             end
+            -- nombre total de monstres de la quete (toutes zones confondues)
+            do
+                local grand, unsure = 0, false
+                for _, a in ipairs(zones) do
+                    for _, m in ipairs(a[2]) do
+                        local n = tonumber(string.match(m[2], "^%s*(%d+)"))
+                        if n then grand = grand + n else unsure = true end
+                    end
+                end
+                imgui.Text(T("Total de monstres dans la quete : "))
+                imgui.SameLine(0, 4)
+                imgui.TextColored(1, 0.85, 0.3, 1, tostring(grand) .. (unsure and "+?" or ""))
+            end
             draw_columns(zones)
 
             -- total : monstres regroupes par nom, repartis en 4 colonnes
@@ -2009,8 +2163,12 @@ local function draw_history()
     imgui.SameLine(520)
     imgui.TextDisabled(T("Anguish"))
     imgui.SameLine(600)
+    imgui.TextDisabled(T("Joueurs"))
+    imgui.SameLine(700)
+    imgui.TextDisabled(T("Personnage"))
+    imgui.SameLine(980)
     imgui.TextDisabled(T("Temps"))
-    imgui.SameLine(670)
+    imgui.SameLine(1050)
     imgui.TextDisabled(T("Valide"))
     imgui.Separator()
 
@@ -2035,8 +2193,20 @@ local function draw_history()
             imgui.TextDisabled(T("-"))
         end
         imgui.SameLine(600)
+        if (h.pc or 0) >= 2 then
+            imgui.TextColored(0.6, 0.85, 1.0, 1, players_label(h.pc))
+        else
+            imgui.TextDisabled(players_label(0))
+        end
+        imgui.SameLine(700)
+        if (h.pc or 0) < 2 and (h.ch or "") ~= "" then
+            draw_char_cell(h.ch)
+        else
+            imgui.TextDisabled("-")
+        end
+        imgui.SameLine(980)
         imgui.Text(fmt(h.dur))
-        imgui.SameLine(670)
+        imgui.SameLine(1050)
         if h.ok then
             imgui.TextColored(0.4, 1, 0.5, 1, T("Valide"))
             if imgui.IsItemHovered() then
@@ -2163,9 +2333,24 @@ local function draw_timer_window()
     if TM.no_resize then flags[#flags + 1] = "NoResize" end
     local ok = imgui.Begin("Quest Timer", true, flags)
     if ok then
-        local q = data[current.ep] and data[current.ep][run_key(current.id, current.diff, current.mode, current.ang)]
+        local q = data[current.ep] and data[current.ep][run_key(current.id, current.diff, current.mode, current.ang, current.pc, current.ch)]
+        -- premier run d'un personnage : on compare a l'ancien PB sans personnage (runs d'avant cette fonction)
+        if (not q or not (q.vbest or q.best)) and (current.ch or "") ~= "" then
+            q = data[current.ep] and data[current.ep][run_key(current.id, current.diff, current.mode, current.ang, current.pc, "")] or q
+        end
         local pb = q and (q.vbest or q.best) or nil
-        if q and q.fbest and FREE[free_key(current.name)] then pb = q.fbest end
+        if q and q.fbest and not q.vbest and FREE[free_key(current.name)] then pb = q.fbest end -- le PB libre ne sert que sans run valide
+        -- Aucun PB pour ce mode : on reprend le meilleur temps valide de la meme quete (meme difficulte,
+        -- meme Anguish, meme nombre de joueurs), quel que soit le mode enregistre
+        if not pb and data[current.ep] then
+            for _, e in pairs(data[current.ep]) do
+                if e.id == current.id and e.diff == current.diff and (e.ang or 0) == (current.ang or 0)
+                   and (e.pc or 0) == (current.pc or 0) then
+                    local v = e.vbest or e.best
+                    if v and (not pb or v < pb) then pb = v end
+                end
+            end
+        end
         local shown_dur = run_elapsed(current)
         if current.wait_start then shown_dur = 0 end
         -- Simulator 2.0 : le chrono reste a 0:00 tant que le message "Stage 1" n'est pas apparu
@@ -2225,6 +2410,7 @@ end
 -- One Person Mode a gauche et Normal Mode a droite. Une quete par ligne (nom + difficulte),
 -- et sous le nom : le nombre de fois, le PB et la moyenne de chaque mode.
 local ta_diff = nil      -- filtre de difficulte (nil = toutes)
+local ta_char = nil      -- filtre de personnage (nil = tous)
 local ta_mode_idx = 3    -- menu deroulant : 1 = One Person, 2 = Normal, 3 = Tout (par defaut)
 
 -- Boutons Tout / N / H / VH / Ult a cote de l'en-tete d'une colonne.
@@ -2249,10 +2435,10 @@ local function draw_counters()
     local stats = {}
     for ep = 0, 2 do
         for _, q in pairs(data[ep] or {}) do
-            local k = ep .. "_" .. q.id .. "_" .. q.diff .. "_" .. (q.ang or 0)
+            local k = ep .. "_" .. q.id .. "_" .. q.diff .. "_" .. (q.ang or 0) .. "_" .. (q.pc or 0) .. "_" .. (q.ch or "")
             local s = stats[k]
             if not s then
-                s = { name = q.name, diff = q.diff, ang = q.ang or 0 }
+                s = { name = q.name, diff = q.diff, ang = q.ang or 0, pc = q.pc or 0, ch = q.ch or "" }
                 stats[k] = s
             end
             s.name = q.name
@@ -2280,8 +2466,23 @@ local function draw_counters()
     table.sort(list, function(x, y)
         if x.name ~= y.name then return x.name < y.name end
         if x.diff ~= y.diff then return x.diff < y.diff end
-        return x.ang < y.ang
+        if x.ang ~= y.ang then return x.ang < y.ang end
+        if (x.pc or 0) ~= (y.pc or 0) then return (x.pc or 0) < (y.pc or 0) end
+        return (x.ch or "") < (y.ch or "")
     end)
+
+    -- liste des personnages vus (filtre)
+    local chars = {}
+    do
+        local seen = {}
+        for ep = 0, 2 do
+            for _, q in pairs(data[ep] or {}) do
+                if (q.ch or "") ~= "" and not seen[q.ch] then seen[q.ch] = true; chars[#chars + 1] = q.ch end
+            end
+        end
+        table.sort(chars)
+    end
+    if ta_char and not (function() for _, n in ipairs(chars) do if n == ta_char then return true end end end)() then ta_char = nil end
 
     -- menu deroulant : un seul mode affiche a la fois
     local MODE_ITEMS = { T("One Person Mode"), T("Normal Mode"), T("Tout") }
@@ -2303,15 +2504,33 @@ local function draw_counters()
     imgui.Text(T("Difficulte :"))
     imgui.SameLine(0, 8)
     ta_diff = draw_diff_filter("ta", ta_diff)
+    if #chars > 0 then
+        imgui.Text(T("Personnage (solo) :"))
+        imgui.SameLine(0, 8)
+        imgui.PushItemWidth(180)
+        local items = { T("Tous") }
+        local cur = 1
+        for i, n in ipairs(chars) do
+            items[#items + 1] = char_text(n)
+            if n == ta_char then cur = i + 1 end
+        end
+        local okc, chg, idx = pcall(imgui.Combo, "##ta_char", cur, items, #items)
+        imgui.PopItemWidth()
+        if okc and chg then ta_char = (idx > 1) and chars[idx - 1] or nil end
+    end
     imgui.TextDisabled(T("Seuls les runs valides (quete rendue) sont comptes ici."))
     imgui.Separator()
     imgui.Spacing()
 
     -- colonnes : nom | difficulte | nombre | PB | moyenne
-    local X_DIFF, X_COUNT, X_PB, X_AVG, X_OK = 330, 430, 530, 670, 790
+    local X_DIFF, X_PL, X_CH, X_COUNT, X_PB, X_AVG, X_OK = 330, 420, 510, 800, 910, 1020, 1140
     imgui.TextColored(ACCENT[1], ACCENT[2], ACCENT[3], 1, T("Quete"))
     imgui.SameLine(X_DIFF)
     imgui.TextDisabled(T("Diff."))
+    imgui.SameLine(X_PL)
+    imgui.TextDisabled(T("Joueurs"))
+    imgui.SameLine(X_CH)
+    imgui.TextDisabled(T("Personnage"))
     imgui.SameLine(X_COUNT)
     imgui.TextDisabled(T("Runs valides"))
     imgui.SameLine(X_PB)
@@ -2339,11 +2558,15 @@ local function draw_counters()
                 end
             end
         end
-        if c and c.count > 0 and (ta_diff == nil or ta_diff == s.diff) then
+        if c and c.count > 0 and (ta_diff == nil or ta_diff == s.diff) and not (ta_char and (s.pc or 0) < 2 and s.ch ~= ta_char) then
             shown = shown + 1
             imgui.Text(QN(s.name))
             imgui.SameLine(X_DIFF)
             imgui.TextColored(1, 0.8, 0.4, 1, (DIFF_NAMES[s.diff] or "?") .. (s.ang > 0 and (" Ang" .. s.ang) or ""))
+            imgui.SameLine(X_PL)
+            imgui.TextColored(0.6, 0.85, 1.0, 1, players_label(s.pc))
+            imgui.SameLine(X_CH)
+            if (s.pc or 0) < 2 and (s.ch or "") ~= "" then draw_char_cell(s.ch) else imgui.TextDisabled("-") end
             imgui.SameLine(X_COUNT)
             imgui.Text(string.format("x%d", c.count))
             imgui.SameLine(X_PB)
@@ -2364,11 +2587,12 @@ local function draw_counters()
         for _, q in pairs(data[ep] or {}) do
             local qm = (q.mode == "solo") and 1 or 2
             if (q.fcount or 0) > 0 and FREE[free_key(q.name)] and (ta_mode_idx == 3 or ta_mode_idx == qm)
-               and (ta_diff == nil or ta_diff == q.diff) and quest_matches(q.name, query) then
-                local k = q.name .. "_" .. q.diff .. "_" .. (q.ang or 0)
+               and (ta_diff == nil or ta_diff == q.diff) and quest_matches(q.name, query)
+               and not (ta_char and (q.pc or 0) < 2 and (q.ch or "") ~= ta_char) then
+                local k = q.name .. "_" .. q.diff .. "_" .. (q.ang or 0) .. "_" .. (q.pc or 0) .. "_" .. (q.ch or "")
                 local e = frees[k]
                 if not e then
-                    e = { name = q.name, diff = q.diff, ang = q.ang or 0, count = 0, total = 0 }
+                    e = { name = q.name, diff = q.diff, ang = q.ang or 0, pc = q.pc or 0, ch = q.ch or "", count = 0, total = 0 }
                     frees[k] = e
                 end
                 e.count = e.count + q.fcount
@@ -2383,18 +2607,24 @@ local function draw_counters()
         table.sort(flist, function(x, y)
             if x.name ~= y.name then return x.name < y.name end
             if x.diff ~= y.diff then return x.diff < y.diff end
-            return x.ang < y.ang
+            if x.ang ~= y.ang then return x.ang < y.ang end
+            if (x.pc or 0) ~= (y.pc or 0) then return (x.pc or 0) < (y.pc or 0) end
+            return (x.ch or "") < (y.ch or "")
         end)
         imgui.Spacing()
         imgui.Separator()
         imgui.TextColored(ACCENT[1], ACCENT[2], ACCENT[3], 1, T("Quete farm reset"))
         imgui.SameLine(0, 10)
-        imgui.TextDisabled(T("(runs non termines inclus)"))
+        imgui.TextDisabled(T("(runs non termines uniquement)"))
         imgui.Separator()
         for _, e in ipairs(flist) do
             imgui.Text(QN(e.name))
             imgui.SameLine(X_DIFF)
             imgui.TextColored(1, 0.8, 0.4, 1, (DIFF_NAMES[e.diff] or "?") .. (e.ang > 0 and (" Ang" .. e.ang) or ""))
+            imgui.SameLine(X_PL)
+            imgui.TextColored(0.6, 0.85, 1.0, 1, players_label(e.pc))
+            imgui.SameLine(X_CH)
+            if (e.pc or 0) < 2 and (e.ch or "") ~= "" then draw_char_cell(e.ch) else imgui.TextDisabled("-") end
             imgui.SameLine(X_COUNT)
             imgui.Text(string.format("x%d", e.count))
             imgui.SameLine(X_PB)
@@ -2405,8 +2635,403 @@ local function draw_counters()
     end
 end
 
+-- ===== Onglet RBR (Ragol Boost Road) : les 3 quetes boostees de la semaine =====
+-- La liste est remise a zero automatiquement chaque dimanche a 00:00 UTC.
+local RBR = { path = "addons/QuestTracker/rbr.lua", week = 0, quests = {}, search = "" }
+
+function RBR.week_start(now)
+    -- Les quetes changent chaque dimanche a 00:00 UTC (= 2h00 en heure d'ete, 1h00 en heure d'hiver en France)
+    local sunday = 3 * 86400 -- le 4 janvier 1970 etait un dimanche
+    return sunday + math.floor((now - sunday) / 604800) * 604800
+end
+
+function RBR.save()
+    pcall(function()
+        local f = io.open(RBR.path, "w")
+        if not f then return end
+        f:write(string.format("return { week = %d, quests = {", RBR.week))
+        for _, name in ipairs(RBR.quests) do f:write(string.format("%q,", name)) end
+        f:write("} }\n")
+        f:close()
+    end)
+end
+
+function RBR.load()
+    pcall(function()
+        local chunk = loadfile(RBR.path)
+        if not chunk then return end
+        local ok, t = pcall(chunk)
+        if ok and type(t) == "table" then
+            RBR.week = tonumber(t.week) or 0
+            RBR.quests = {}
+            for _, name in ipairs(t.quests or {}) do
+                if type(name) == "string" and #RBR.quests < 3 then RBR.quests[#RBR.quests + 1] = name end
+            end
+        end
+    end)
+end
+
+-- Nouvelle semaine (dimanche 2h00 passe) : on vide la liste
+function RBR.sync()
+    local now = os.time()
+    local current_week = RBR.week_start(now)
+    if RBR.week ~= current_week then
+        RBR.stale_flat = RBR.applied_flat
+        RBR.week = current_week
+        RBR.quests = {}
+        RBR.save()
+    end
+    return current_week
+end
+
+-- Lecture automatique : quand la banniere de /rbr (ou le texte du compteur) passe par le tampon de messages
+-- du jeu, on repere les noms de quetes connus et on remplit la liste. Les textes vus sont notes dans
+-- addons/QuestTracker/rbr_debug.txt pour pouvoir verifier ce que le jeu affiche.
+RBR.last_text, RBR.logged = "", 0
+RBR.SCAN_FIRST, RBR.SCAN_LAST, RBR.SCAN_STEP = 0x00A40000, 0x00AAF000, 6000
+RBR.scan_pos = RBR.SCAN_FIRST
+RBR.status = "en attente de /rbr"
+function RBR.squash(text)
+    return (string.lower(text or ""):gsub("[^%w]", ""))
+end
+
+function RBR.log(text)
+    if RBR.logged >= 40 then return end
+    RBR.logged = RBR.logged + 1
+    pcall(function()
+        local f = io.open("addons/QuestTracker/rbr_debug.txt", "a")
+        if f then f:write(os.date("%d/%m %H:%M:%S") .. "  " .. (tostring(text):gsub("[%z\1-\31]", " ")) .. "\n"); f:close() end
+    end)
+end
+
+-- Cherche les noms de quetes connus dans un texte (banniere /rbr) ; renvoie true si la liste a ete mise a jour
+function RBR.apply(text)
+    local flat = RBR.squash(text)
+    -- le tampon peut encore contenir la banniere de la semaine precedente : on l'ignore
+    if RBR.stale_flat and flat == RBR.stale_flat then return false end
+    if not string.find(flat, "boost", 1, true) and not string.find(flat, "rbr", 1, true) then return false end
+    local found = {}
+    for ep = 0, 2 do
+        for _, group in ipairs(QUEST_LIST[ep] or {}) do
+            for _, n in ipairs(group.names) do
+                local key = RBR.squash(n)
+                local at = string.find(flat, key, 1, true)
+                while at do
+                    found[#found + 1] = { pos = at, name = n }
+                    at = string.find(flat, key, at + 1, true)
+                end
+            end
+        end
+    end
+    if #found == 0 then return false end
+    -- "sweepupoperation1" est aussi le debut de "sweepupoperation10" : on garde le nom le plus long a une position donnee
+    table.sort(found, function(a, b)
+        if a.pos ~= b.pos then return a.pos < b.pos end
+        return #a.name > #b.name
+    end)
+    local picked, last_end = {}, 0
+    for _, f in ipairs(found) do
+        local stop = f.pos + #RBR.squash(f.name) - 1
+        if f.pos > last_end and #picked < 3 then
+            picked[#picked + 1] = f.name
+            last_end = stop
+        end
+    end
+    RBR.sync()
+    RBR.quests = picked
+    RBR.save()
+    RBR.found_week = RBR.week
+    RBR.applied_flat = flat
+    RBR.force = false
+    RBR.status = "quetes lues dans le jeu"
+    return true
+end
+
+-- Texte a une adresse : UTF-16 puis ASCII
+function RBR.read_at(addr)
+    local ok, text = pcall(pso.read_wstr, addr, 0x200)
+    if ok and type(text) == "string" and #text > 8 and string.find(string.lower(text), "boost", 1, true) then return text end
+    if pso.read_str then
+        local ok2, t2 = pcall(pso.read_str, addr, 0x200)
+        if ok2 and type(t2) == "string" and string.find(string.lower(t2), "boost", 1, true) then return t2 end
+    end
+    return nil
+end
+
+-- Recherche dans la memoire du jeu (meme methode que la lecture de l'Anguish : le texte affiche est en UTF-16
+-- dans le tas du jeu, 0x10000000 - 0x14000000). Quelques Ko par image, sans risque.
+RBR.MEM_FIRST, RBR.MEM_LAST, RBR.MEM_CHUNKS = 0x10000000, 0x14000000, 192
+RBR.PAT = ("Ragol Boost Road"):gsub(".", "%0\0")
+RBR.mem_addr, RBR.mem_scanned = RBR.MEM_FIRST, 0
+
+function RBR.mem_step()
+    for _ = 1, RBR.MEM_CHUNKS do
+        local a = RBR.mem_addr
+        if a >= RBR.MEM_LAST then
+            RBR.mem_addr, RBR.mem_scanned = RBR.MEM_FIRST, 0
+            RBR.fast_cycles = (RBR.fast_cycles or 0) + 1
+            return true
+        end
+        RBR.mem_addr = a + 4096
+        RBR.mem_scanned = RBR.mem_scanned + 4096
+        local ok, s = pcall(pso.read_mem_str, a, 4096 + 64)
+        if ok and type(s) == "string" then
+            local i = 1
+            while true do
+                local p = string.find(s, RBR.PAT, i, true)
+                if not p or p > 4096 then break end
+                local addr = a + p - 1
+                local okt, text = pcall(pso.read_wstr, addr, 0x200)
+                if okt and type(text) == "string" and RBR.apply(text) then
+                    RBR.addr = addr
+                    RBR.remember(addr)
+                    RBR.log(string.format("memoire 0x%X : %s", addr, text))
+                end
+                i = p + 2
+            end
+        end
+    end
+    return true
+end
+
+-- Plan B (plus lent, ~15 s) : balayage de toute la memoire du jeu via VirtualQuery (zones valides uniquement)
+RBR.SLICE, RBR.OVERLAP = 1024 * 1024, 0x700
+function RBR.ffi_init()
+    if RBR.ffi ~= nil then return RBR.ffi end
+    RBR.ffi = false
+    local ok, ffi = pcall(require, "ffi")
+    if not ok or type(ffi) ~= "table" then return false end
+    pcall(ffi.cdef, [[
+        typedef struct { uintptr_t BaseAddress; uintptr_t AllocationBase; uint32_t AllocationProtect;
+            size_t RegionSize; uint32_t State; uint32_t Protect; uint32_t Type; } RBR_MBI;
+        size_t VirtualQuery(const void* lpAddress, RBR_MBI* lpBuffer, size_t dwLength);
+    ]])
+    local ok2, mbi = pcall(ffi.new, "RBR_MBI")
+    if not ok2 then return false end
+    local ok3, ret = pcall(function() return ffi.C.VirtualQuery(ffi.cast("void*", 0x00400000), mbi, ffi.sizeof(mbi)) end)
+    if not ok3 or tonumber(ret) == 0 then return false end
+    RBR.ffi, RBR.mbi = ffi, mbi
+    RBR.full_addr = 0x00010000
+    return ffi
+end
+
+function RBR.extract(chunk, pos)
+    local out = {}
+    for i = pos, math.min(#chunk - 1, pos + 0x600), 2 do
+        local lo, hi = chunk:byte(i), chunk:byte(i + 1)
+        if lo == 0 and hi == 0 then break end
+        out[#out + 1] = (hi == 0) and string.char(lo) or "?"
+    end
+    return table.concat(out)
+end
+
+function RBR.full_step()
+    local ffi = RBR.ffi_init()
+    if not ffi then return end
+    local mbi = RBR.mbi
+    local addr = RBR.full_addr
+    for _ = 1, 64 do
+        if addr >= 0x7FFE0000 then RBR.full_addr = 0x00010000 return end
+        local ok, ret = pcall(function() return ffi.C.VirtualQuery(ffi.cast("void*", addr), mbi, ffi.sizeof(mbi)) end)
+        if not ok or tonumber(ret) == 0 then RBR.full_addr = addr + 0x10000 return end
+        local base, size, prot = tonumber(mbi.BaseAddress), tonumber(mbi.RegionSize), tonumber(mbi.Protect)
+        local readable = tonumber(mbi.State) == 0x1000 and prot < 0x100
+            and (prot == 0x02 or prot == 0x04 or prot == 0x08 or prot == 0x20 or prot == 0x40 or prot == 0x80)
+        local region_end = base + size
+        if readable and addr < region_end then
+            local len = math.min(RBR.SLICE + RBR.OVERLAP, region_end - addr)
+            local okc, chunk = pcall(ffi.string, ffi.cast("const char*", addr), len)
+            if okc and chunk then
+                local p = chunk:find(RBR.PAT, 1, true)
+                if p and p <= RBR.SLICE then
+                    local text = RBR.extract(chunk, p)
+                    if RBR.apply(text) then
+                        RBR.addr = addr + p - 1
+                        RBR.remember(RBR.addr)
+                        RBR.log(string.format("memoire 0x%X : %s", RBR.addr, text))
+                    end
+                end
+            end
+            RBR.full_addr = math.min(addr + RBR.SLICE, region_end)
+            return
+        end
+        addr = region_end
+        RBR.full_addr = addr
+    end
+end
+
+-- Adresses ou la banniere a deja ete trouvee (relues en premier la fois suivante)
+RBR.addr_path = "addons/QuestTracker/rbr_addr.txt"
+RBR.known = {}
+function RBR.remember(addr)
+    if RBR.known[addr] then return end
+    RBR.known[addr] = true
+    pcall(function()
+        local f = io.open(RBR.addr_path, "a")
+        if f then f:write(string.format("0x%X\n", addr)); f:close() end
+    end)
+end
+pcall(function()
+    local f = io.open(RBR.addr_path, "r")
+    if f then
+        for line in f:lines() do
+            local hx = string.match(line, "^0x(%x+)")
+            if hx then RBR.known[tonumber(hx, 16)] = true end
+        end
+        f:close()
+    end
+end)
+
+function RBR.poll()
+    RBR.tick = (RBR.tick or 0) + 1
+    -- 1) tampon de messages des quetes + journal de discussion
+    if RBR.tick % 20 == 0 then
+        local texts = {}
+        local ok, text = pcall(pso.read_wstr, 0xA94B80, 0x100)
+        if ok and type(text) == "string" then texts[#texts + 1] = text end
+        for i = 0, 29 do
+            local okp, ptr = pcall(pso.read_u32, 0xA9A920 + i * 4)
+            if okp and ptr and ptr ~= 0 then
+                local okm, msg = pcall(pso.read_wstr, ptr, 0x100)
+                if okm and type(msg) == "string" and #msg > 0 then texts[#texts + 1] = msg end
+            end
+        end
+        if RBR.addr then
+            local t = RBR.read_at(RBR.addr)
+            if t then texts[#texts + 1] = t end
+        end
+        for addr, _ in pairs(RBR.known) do
+            local t = RBR.read_at(addr)
+            if t then texts[#texts + 1] = t end
+        end
+        for _, t in ipairs(texts) do
+            local low = string.lower(t)
+            if t ~= RBR.last_text and (string.find(low, "boost", 1, true) or string.find(low, "rbr", 1, true)) then
+                RBR.last_text = t
+                RBR.log("texte: " .. t)
+                RBR.apply(t)
+            end
+        end
+    end
+    -- 2) recherche dans la memoire du jeu, tant que les quetes de la semaine ne sont pas connues
+    local week = RBR.week_start(os.time())
+    if RBR.found_week == week or RBR.paused then return end
+    if #RBR.quests >= 3 and RBR.week == week and not RBR.force then return end
+    -- fenetre RBR ouverte ou "Relire" : plein regime ; sinon une tranche toutes les 4 images
+    if not (open and current_tab == "rbr") and not RBR.force and RBR.tick % 4 ~= 0 then return end
+    if (RBR.fast_cycles or 0) < 2 then
+        local okm = pcall(RBR.mem_step)
+        RBR.status = string.format("recherche rapide de /rbr (%d Mo)... tape /rbr", math.floor((RBR.mem_scanned or 0) / 1048576))
+    else
+        pcall(RBR.full_step)
+        RBR.status = string.format("recherche complete de /rbr (%s)... tape /rbr", RBR.ffi == false and "indisponible" or string.format("0x%X", RBR.full_addr or 0))
+        if RBR.tick % 600 == 0 then RBR.fast_cycles = 0 end -- on retente aussi la zone rapide de temps en temps
+    end
+end
+
+function RBR.has(name)
+    for _, n in ipairs(RBR.quests) do
+        if n == name then return true end
+    end
+    return false
+end
+
+function RBR.runs_of(name)
+    local total = 0
+    for ep = 0, 2 do
+        local counts = count_by_name(ep)
+        total = total + (counts[norm_name(name)] or 0)
+    end
+    return total
+end
+
+function RBR.draw()
+    local week = RBR.sync()
+    local now = os.time()
+    local next_reset = week + 604800
+    local left = math.max(0, next_reset - now)
+    local days = math.floor(left / 86400)
+    local hours = math.floor((left % 86400) / 3600)
+    local minutes = math.floor((left % 3600) / 60)
+
+    imgui.TextColored(ACCENT[1], ACCENT[2], ACCENT[3], 1, T("Ragol Boost Road : les 3 quetes de la semaine"))
+    imgui.TextDisabled(string.format(T("Semaine depuis le %s | remise a zero dans %dj %02dh %02dmin (dimanche 00:00 UTC)"),
+        os.date("%d/%m %H:%M", week), days, hours, minutes))
+    imgui.TextDisabled(T("Lecture automatique :") .. " " .. tostring(RBR.status))
+    imgui.SameLine(0, 12)
+    if imgui.Button("Relire /rbr##rbr_force") then
+        RBR.force, RBR.found_week, RBR.fast_cycles = true, nil, 0
+        RBR.stale_flat = nil
+        RBR.mem_addr, RBR.mem_scanned = RBR.MEM_FIRST, 0
+    end
+    imgui.Spacing()
+    imgui.Separator()
+    imgui.Spacing()
+
+    for slot = 1, 3 do
+        local name = RBR.quests[slot]
+        imgui.Text(tostring(slot) .. ".")
+        imgui.SameLine(0, 10)
+        if name then
+            local runs = RBR.runs_of(name)
+            imgui.TextColored(1.0, 0.85, 0.3, 1, name)
+            imgui.SameLine(0, 16)
+            if runs > 0 then
+                imgui.TextColored(0.5, 1, 0.5, 1, "x" .. runs)
+            else
+                imgui.TextColored(0.5, 0.5, 0.5, 1, "x0")
+            end
+            imgui.SameLine(0, 16)
+            if imgui.Button("X##rbr_rm_" .. slot) then
+                table.remove(RBR.quests, slot)
+                RBR.save()
+                break
+            end
+        else
+            imgui.TextDisabled(T("(vide) : cherche une quete ci-dessous"))
+        end
+    end
+
+    if #RBR.quests < 3 then
+        imgui.Spacing()
+        imgui.Separator()
+        imgui.Spacing()
+        imgui.Text(T("Recherche :"))
+        imgui.SameLine(0, 8)
+        imgui.PushItemWidth(200)
+        local _
+        _, RBR.search = imgui.InputText("##rbr_search", RBR.search, 64)
+        imgui.PopItemWidth()
+        imgui.SameLine(0, 6)
+        if imgui.Button("X##rbr_search_clear") then RBR.search = "" end
+        imgui.TextDisabled(T("Tape le nom ou l'abreviation (ex : en4, ao3), puis clique la quete boostee."))
+
+        local query = string.lower(RBR.search or "")
+        if query ~= "" then
+            local shown = 0
+            for ep = 0, 2 do
+                for _, group in ipairs(QUEST_LIST[ep] or {}) do
+                    for _, n in ipairs(group.names) do
+                        if shown < 14 and not RBR.has(n) and quest_matches(n, query) then
+                            shown = shown + 1
+                            if imgui.Button(n .. "##rbr_add_" .. ep .. "_" .. shown) then
+                                RBR.quests[#RBR.quests + 1] = n
+                                RBR.search = ""
+                                RBR.save()
+                            end
+                            imgui.SameLine(0, 12)
+                            imgui.TextColored(0.6, 0.6, 0.6, 1, T(LIST_EP_LABELS[ep]) .. " - " .. T(group.cat))
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 local function present()
     update() -- le suivi des runs continue meme si la fenetre est fermee
+    RBR.poll()
 
     -- Le timer a sa propre fenetre, toujours visible pendant un run
     -- (Simulator 2.0 : le timer n'apparait qu'a partir du message "Stage 1")
@@ -2443,6 +3068,8 @@ local function present()
         tab_button(T("Historique"), "history")
         imgui.SameLine(0, 10)
         tab_button(T("Time Attack / Personal Best"), "counters")
+        imgui.SameLine(0, 10)
+        tab_button("RBR", "rbr")
         imgui.SameLine(0, 10)
         tab_button(T("Timer"), "timer")
         imgui.SameLine(0, 24)
@@ -2523,6 +3150,10 @@ local function present()
             draw_counters()
         end
 
+        if current_tab == "rbr" then
+            RBR.draw()
+        end
+
         if current_tab == "timer" then
             draw_timer_tab()
         end
@@ -2539,9 +3170,20 @@ local function migrate_stats()
             if q.dtotal == nil then
                 q.done, q.dtotal, q.vbest = 0, 0, nil
                 for _, h in ipairs(history) do
-                    if h.ok and h.name == q.name and h.diff == q.diff and h.mode == q.mode and (h.ang or 0) == (q.ang or 0) then
+                    if h.ok and h.name == q.name and h.diff == q.diff and h.mode == q.mode and (h.ang or 0) == (q.ang or 0) and (h.pc or 0) == (q.pc or 0) and (h.ch or "") == (q.ch or "") then
                         credit_validated(q, h.dur)
                     end
+                end
+            end
+        end
+    end
+    -- Reparation du PB : il ne peut pas etre plus haut que le meilleur run valide de l'historique
+    for ep, quests in pairs(data) do
+        for _, q in pairs(quests) do
+            for _, h in ipairs(history) do
+                if h.ok and h.ep == ep and h.name == q.name and h.diff == q.diff and h.mode == q.mode
+                   and (h.ang or 0) == (q.ang or 0) and (h.pc or 0) == (q.pc or 0) and (h.ch or "") == (q.ch or "") and h.dur > 0 and (not q.vbest or h.dur < q.vbest) then
+                    q.vbest = h.dur
                 end
             end
         end
@@ -2570,6 +3212,7 @@ local function init()
     load_history()
     migrate_stats()
     load_phrases()
+    RBR.load()
     core_mainmenu.add_button("Quest Tracker", function() open = not open end)
     return {
         name = "Quest Tracker",
