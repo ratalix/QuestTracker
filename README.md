@@ -6,7 +6,7 @@ Quest run tracker for the Ephinea client (psobbaddonplugin, Lua / imgui). Versio
 - Run counter, live timer, personal best (PB), average and history per quest, difficulty and episode
 - Automatic detection of quest start and completion (no manual input needed): quest end registers when known, game messages otherwise
 - Time Attack tab: PB / average table per quest, "Quest farm reset" mode (PB and average even for runs you don't finish)
-- Per-quest monster window, Anguish 1/2/3 detection, Simulator 2.0 timing (starts at "Stage 1", stops when Dal Ral Lie dies)
+- Per-quest monster window, Anguish 1/2/3 detection
 - Quest list with search, history with invalid-run cleanup, double-confirmation quest reset
 - Languages: Français / English / 日本語 (the Japanese text needs a font that has Japanese glyphs)
 
