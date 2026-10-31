@@ -20,6 +20,7 @@ local EN = {
     ["un joueur a quitte ou s'est deconnecte pendant la quete"] = "a player left or disconnected during the quest",
     ["un joueur a rejoint la partie pendant la quete"] = "a player joined during the quest",
     ["Personnage"] = "Character",
+    ["Autres joueurs"] = "Other players",
     ["Personnage (solo) :"] = "Character (solo):",
     ["Tous"] = "All",
     ["Joueurs"] = "Players",
@@ -71,6 +72,19 @@ local EN = {
     ["Verification en cours..."] = "Checking...",
     ["Dernier run : "] = "Last run : ",
     ["Pas encore de PB"] = "No PB yet",
+    ["Runs par ID de room"] = "Runs per room ID",
+    ["ID inconnu"] = "Unknown ID",
+    ["Position et taille du timer"] = "Timer position and size",
+    ["Afficher le timer maintenant (pour le placer)"] = "Show the timer now (to place it)",
+    ["Position X"] = "Position X",
+    ["Position Y"] = "Position Y",
+    ["Largeur"] = "Width",
+    ["Hauteur"] = "Height",
+    ["Tu peux aussi deplacer le timer a la souris : les valeurs se mettent a jour."] = "You can also drag the timer with the mouse: the values update.",
+    ["Touche d'ouverture"] = "Open key",
+    ["Appuie sur une touche..."] = "Press a key...",
+    ["Aucune"] = "None",
+    ["clique puis appuie sur une touche (Suppr = aucune)"] = "click, then press a key (Del = none)",
     ["Reglages du timer"] = "Timer settings",
     ["Apercu"] = "Preview",
     ["Afficher le timer pendant une quete"] = "Show the timer during a quest",
@@ -95,6 +109,7 @@ local EN = {
 }
 local JA = {
     ["Personnage"] = "キャラクター",
+    ["Autres joueurs"] = "他のプレイヤー",
     ["Personnage (solo) :"] = "キャラクター（ソロ）：",
     ["Joueurs"] = "プレイヤー数",
     ["Solo"] = "ソロ",
@@ -140,6 +155,20 @@ local JA = {
     ["Verification en cours..."] = "確認中...",
     ["Dernier run : "] = "前回のタイム：",
     ["Pas encore de PB"] = "PBなし",
+    ["Runs par ID de room"] = "ルームIDごとのラン数",
+    ["ID inconnu"] = "ID不明",
+    ["Average"] = "平均",
+    ["Position et taille du timer"] = "タイマーの位置とサイズ",
+    ["Afficher le timer maintenant (pour le placer)"] = "今すぐタイマーを表示（配置用）",
+    ["Position X"] = "位置 X",
+    ["Position Y"] = "位置 Y",
+    ["Largeur"] = "幅",
+    ["Hauteur"] = "高さ",
+    ["Tu peux aussi deplacer le timer a la souris : les valeurs se mettent a jour."] = "マウスでタイマーを動かすと値も更新されます。",
+    ["Touche d'ouverture"] = "開くキー",
+    ["Appuie sur une touche..."] = "キーを押してください…",
+    ["Aucune"] = "なし",
+    ["clique puis appuie sur une touche (Suppr = aucune)"] = "クリックしてキーを押す（Delで解除）",
     ["Reglages du timer"] = "タイマー設定",
     ["Apercu"] = "プレビュー",
     ["Afficher le timer pendant une quete"] = "クエスト中にタイマーを表示",
@@ -183,17 +212,17 @@ local JA = {
     ["Episode 1"] = "エピソード1",
     ["Episode 2"] = "エピソード2",
     ["Episode 4"] = "エピソード4",
-    ["Government"] = "政府クエスト",
+    ["Government"] = "総督府",
     ["Side Story"] = "サイドストーリー",
     ["Extermination"] = "殲滅",
     ["Maximum Attack"] = "マキシマムアタック",
-    ["Retrieval"] = "回収",
+    ["Retrieval"] = "奪還",
     ["Shop"] = "ショップ",
     ["VR"] = "VR",
-    ["Solo Only"] = "ソロ専用",
+    ["Solo Only"] = "一人用限定",
     ["Event"] = "イベント",
     ["Halloween"] = "ハロウィン",
-    ["Sandbox Only"] = "サンドボックス専用",
+    ["Sandbox Only"] = "Sandbox限定",
     ["Tower"] = "タワー",
 }
 local function T(s)
@@ -220,7 +249,8 @@ local SECTION_IDS = {
     [4] = "Purplenum", [5] = "Pinkal", [6] = "Redria", [7] = "Oran",
     [8] = "Yellowboze", [9] = "Whitill",
 }
-local ADDR_SECTION_ID = 0xA9C4D8
+local ADDR_SECTION_ID = 0xA9C4D8 -- (ID du personnage, plus utilise : l'ID de la room est lu dans le message de debut de partie)
+local ROOM = { sec = nil, last = nil } -- Section ID de la room (celle de la partie, pas celle de mon personnage)
 local ADDR_SOLO_FLAG  = 0xA9B1C4 -- 1 = One Person, 0 = Normal (trouvé via ModeFinder)
 
 local open = false -- ferme au lancement du jeu
@@ -256,197 +286,197 @@ local function free_key(name)
     return (n:gsub("[^%w]", ""))
 end
 local JAQ = {
-    ["addictingfood"] = "病みつきの味",
+    ["addictingfood"] = "悪魔の食物",
     ["anewhope"] = "新たなる希望",
-    ["anniversarybadgeshop"] = "記念バッジショップ",
-    ["anomalousordeal1"] = "異常なる試練 #1",
-    ["anomalousordeal2"] = "異常なる試練 #2",
-    ["anomalousordeal3"] = "異常なる試練 #3",
-    ["anomalousordeal4"] = "異常なる試練 #4",
-    ["anomalousordeal5"] = "異常なる試練 #5",
-    ["aolcupsunsetbase"] = "AOLカップ -サンセットベース-",
-    ["augustatrocity1"] = "8月の惨劇 1",
-    ["augustatrocity2"] = "8月の惨劇 2",
-    ["battletraining"] = "戦闘訓練",
-    ["beachlaughter"] = "浜辺の笑い声",
-    ["belowthewaves"] = "波の下に",
-    ["beyondthehorizon"] = "地平線の彼方へ",
+    ["anniversarybadgeshop"] = "アニバーサリーバッジショップ",
+    ["anomalousordeal1"] = "変異性試練 #1",
+    ["anomalousordeal2"] = "変異性試練 #2",
+    ["anomalousordeal3"] = "変異性試練 #3",
+    ["anomalousordeal4"] = "変異性試練 #4",
+    ["anomalousordeal5"] = "変異性試練 #5",
+    ["aolcupsunsetbase"] = "EDY CUP -夕焼けの秘密基地-",
+    ["augustatrocity1"] = "八月の惨劇 #1",
+    ["augustatrocity2"] = "八月の惨劇 #2",
+    ["battletraining"] = "戦いのいしずえ",
+    ["beachlaughter"] = "海辺で笑えば",
+    ["belowthewaves"] = "水底で眠るモノ",
+    ["beyondthehorizon"] = "思戦の彼方",
     ["blackpaper"] = "ブラックペーパー",
     ["blackpapersdangerousdeal"] = "ブラックペーパーの危険な取引",
-    ["blackpapersdangerousdeal2"] = "ブラックペーパーの危険な取引 2",
-    ["bluestarmemories"] = "青い星の記憶",
-    ["buriedrelics"] = "埋もれた遺物",
+    ["blackpapersdangerousdeal2"] = "ブラックペッパーのもっと危険な取引",
+    ["bluestarmemories"] = "蒼星の記憶",
+    ["buriedrelics"] = "地底の石碑",
     ["calsclockchallenge"] = "CALの時計チャレンジ",
-    ["centralcontrol"] = "中央制御室",
-    ["centraldomefireswirl"] = "セントラルドームの炎渦",
+    ["centralcontrol"] = "中央管理区 (J)",
+    ["centraldomefireswirl"] = "セントラルドームの火炎旋風",
     ["christmaseventshop"] = "クリスマスイベントショップ",
-    ["christmasfiasco"] = "クリスマス大騒動",
-    ["chronocidetrial1"] = "時間殺しの試練 #1",
-    ["chronocidetrial2"] = "時間殺しの試練 #2",
-    ["chronocidetrial3"] = "時間殺しの試練 #3",
-    ["chronocidetrial4"] = "時間殺しの試練 #4",
-    ["claimingastake"] = "権利の主張",
-    ["clairesdeal5"] = "クレアの取引 5",
-    ["darkinheritance"] = "闇の継承",
-    ["dataretrieval"] = "データ回収",
-    ["decemberdisaster1"] = "12月の災難 #1",
-    ["decemberdisaster2"] = "12月の災難 #2",
-    ["deepwithin"] = "奥地へ",
+    ["christmasfiasco"] = "クリスマス大混乱",
+    ["chronocidetrial1"] = "時滅の試練 #1",
+    ["chronocidetrial2"] = "時滅の試練 #2",
+    ["chronocidetrial3"] = "時滅の試練 #3",
+    ["chronocidetrial4"] = "時滅の試練 #4",
+    ["claimingastake"] = "ラグオルの大地主",
+    ["clairesdeal5"] = "クレアの取引５",
+    ["darkinheritance"] = "闇の遺産",
+    ["dataretrieval"] = "調査データ回収作戦",
+    ["decemberdisaster1"] = "十二月の災厄 #1",
+    ["decemberdisaster2"] = "十二月の災厄 #2",
+    ["deepwithin"] = "地中深くで",
     ["desiresend"] = "欲望の果て",
-    ["docssecretplan"] = "ドクの秘密計画",
+    ["docssecretplan"] = "博士の密かな欲望",
     ["dolmolmresearch"] = "ドルモルム調査",
-    ["dreammessenger"] = "夢の使者",
+    ["dreammessenger"] = "夢からの使者",
     ["drostosresearch"] = "オスト博士の研究",
-    ["endlessepisode1"] = "エンドレス: エピソード1",
-    ["endlessepisode2"] = "エンドレス: エピソード2",
-    ["endlessnightmare1"] = "終わらない悪夢 #1",
-    ["endlessnightmare2"] = "終わらない悪夢 #2",
-    ["endlessnightmare3"] = "終わらない悪夢 #3",
-    ["endlessnightmare4"] = "終わらない悪夢 #4",
-    ["festivityonthebeach"] = "浜辺の祝祭",
-    ["forestofsorrow"] = "悲しみの森",
-    ["forsakenfriends"] = "見捨てられた友",
-    ["fragmentsofamemory"] = "記憶の断片",
-    ["fromthedepths"] = "深淵より",
-    ["fromthepast"] = "過去からの使者",
-    ["galdavalsdarkness"] = "ギャルダバルの闇",
-    ["gallonsplan"] = "ギャロンの計画",
-    ["gallonsshop"] = "ギャロンの店",
-    ["gallonstreachery"] = "ギャロンの裏切り",
+    ["endlessepisode1"] = "エンドレス：エピソード1",
+    ["endlessepisode2"] = "エンドレス：エピソード2",
+    ["endlessnightmare1"] = "夢幻のごとく １",
+    ["endlessnightmare2"] = "夢幻のごとく ２",
+    ["endlessnightmare3"] = "夢幻のごとく ３",
+    ["endlessnightmare4"] = "夢幻のごとく ４",
+    ["festivityonthebeach"] = "浜辺の祭典",
+    ["forestofsorrow"] = "慟哭の森",
+    ["forsakenfriends"] = "見捨てられた仲間",
+    ["fragmentsofamemory"] = "記憶のかけら",
+    ["fromthedepths"] = "淵より来るもの",
+    ["fromthepast"] = "過去からの伝言",
+    ["galdavalsdarkness"] = "ガル・ダ・バルの闇",
+    ["gallonsplan"] = "ガロンの計画",
+    ["gallonsshop"] = "ガロンズ・ショップ",
+    ["gallonstreachery"] = "ガロンの野望",
     ["goodluck"] = "グッドラック！",
-    ["gransquall"] = "グランスコール",
+    ["gransquall"] = "グラン·スコール号",
     ["herodaughter"] = "英雄と娘",
-    ["hollowbattlefieldcave"] = "虚ろな戦場：洞窟",
-    ["hollowbattlefieldforest"] = "虚ろな戦場：森",
-    ["hollowbattlefieldmine"] = "虚ろな戦場：坑道",
-    ["hollowbattlefieldruins"] = "虚ろな戦場：遺跡",
-    ["hollowphantasmjungle"] = "虚ろな幻影：ジャングル",
-    ["hollowphantasmseabed"] = "虚ろな幻影：海底",
-    ["hollowphantasmtower"] = "虚ろな幻影：タワー",
-    ["hollowrealityspaceship"] = "虚ろな現実：スペースシップ",
-    ["hollowrealitytemple"] = "虚ろな現実：テンプル",
-    ["hollowwastelanddesert"] = "虚ろな荒野：砂漠",
-    ["hollowwastelandwilderness"] = "虚ろな荒野：荒野",
+    ["hollowbattlefieldcave"] = "虚ろなる戦場：洞窟",
+    ["hollowbattlefieldforest"] = "虚ろなる戦場：森林",
+    ["hollowbattlefieldmine"] = "虚ろなる戦場：坑道",
+    ["hollowbattlefieldruins"] = "虚ろなる戦場：遺跡",
+    ["hollowphantasmjungle"] = "虚ろなる幻影：密林",
+    ["hollowphantasmseabed"] = "虚ろなる幻影：海底",
+    ["hollowphantasmtower"] = "虚ろなる幻影：タワー",
+    ["hollowrealityspaceship"] = "虚ろなる現実：宇宙船",
+    ["hollowrealitytemple"] = "虚ろなる現実：神殿",
+    ["hollowwastelanddesert"] = "虚ろなる荒野：砂漠",
+    ["hollowwastelandwilderness"] = "虚ろなる荒野：荒野",
     ["infernalcavern"] = "灼熱の洞窟",
-    ["isleofmutants"] = "ミュータントの島",
+    ["isleofmutants"] = "亜生命体の島",
     ["itempresent"] = "アイテムプレゼント",
-    ["journalisticpursuit"] = "記者の追跡",
-    ["knightofcoral"] = "コーラルの騎士",
-    ["knightofcoraladvent"] = "コーラルの騎士 降臨",
-    ["knowingonesheart"] = "心を知る",
-    ["labyrinthinetrial"] = "迷宮の試練",
-    ["letterfromlionel"] = "ライオネルからの手紙",
-    ["lostberserkbaton"] = "ロスト BERSERK BATON",
-    ["lostbindassault"] = "ロスト BIND ASSAULT",
-    ["lostchargevulcan"] = "ロスト CHARGE VULCAN",
-    ["lostdemonsrailgun"] = "ロスト DEMON'S RAILGUN",
-    ["lostfillcannon"] = "ロスト FILL CANNON",
-    ["lostheatsword"] = "ロスト HEAT SWORD",
-    ["losthellpallasch"] = "ロスト HELL PALLASCH",
-    ["losticespinner"] = "ロスト ICE SPINNER",
-    ["lostshockrifle"] = "ロスト SHOCK RIFLE",
+    ["journalisticpursuit"] = "パイオニア２の新聞",
+    ["knightofcoral"] = "珊瑚の騎士",
+    ["knightofcoraladvent"] = "珊瑚の騎士 降臨",
+    ["knowingonesheart"] = "心のかたち",
+    ["labyrinthinetrial"] = "迷窟の試練",
+    ["letterfromlionel"] = "ライオネルのメール",
+    ["lostberserkbaton"] = "奪われたバーサークバトン",
+    ["lostbindassault"] = "奪われたバインドアサルト",
+    ["lostchargevulcan"] = "奪われたチャージバルカン",
+    ["lostdemonsrailgun"] = "奪われたデーモンズレールガン",
+    ["lostfillcannon"] = "奪われたフィルキャノン",
+    ["lostheatsword"] = "奪われたヒートソード",
+    ["losthellpallasch"] = "奪われたヘルパラッシュ",
+    ["losticespinner"] = "奪われたアイススピナー",
+    ["lostshockrifle"] = "奪われたショックライフル",
     ["lostsonjim"] = "行方不明の息子ジム",
-    ["lostsoulblade"] = "ロスト SOUL BLADE",
-    ["lostspiritstriker"] = "ロスト SPIRIT STRIKER",
-    ["machinesattack"] = "機械の襲撃",
-    ["magnitudeofmetal"] = "鋼鉄の威力",
-    ["maximumattack1ver2"] = "マキシマムアタック 1 Ver2",
-    ["maximumattack2ver2"] = "マキシマムアタック 2 Ver2",
-    ["maximumattack3ver2"] = "マキシマムアタック 3 Ver2",
-    ["maximumattack4thstage1a"] = "マキシマムアタック 4thステージ -1A-",
-    ["maximumattack4thstage1b"] = "マキシマムアタック 4thステージ -1B-",
-    ["maximumattack4thstage1c"] = "マキシマムアタック 4thステージ -1C-",
-    ["maximumattack4thstage1r"] = "マキシマムアタック 4thステージ -1R-",
-    ["maximumattack4thstage2a"] = "マキシマムアタック 4thステージ -2A-",
-    ["maximumattack4thstage2b"] = "マキシマムアタック 4thステージ -2B-",
-    ["maximumattack4thstage2c"] = "マキシマムアタック 4thステージ -2C-",
-    ["maximumattack4thstage2r"] = "マキシマムアタック 4thステージ -2R-",
-    ["maximumattack4thstage4a"] = "マキシマムアタック 4thステージ -4A-",
-    ["maximumattack4thstage4b"] = "マキシマムアタック 4thステージ -4B-",
-    ["maximumattack4thstage4c"] = "マキシマムアタック 4thステージ -4C-",
-    ["maximumattack4thstage4r"] = "マキシマムアタック 4thステージ -4R-",
-    ["maximumattackecave"] = "マキシマムアタック E: 洞窟",
-    ["maximumattackecca"] = "マキシマムアタック E: CCA",
-    ["maximumattackecrater"] = "マキシマムアタック E: クレーター",
-    ["maximumattackedesert"] = "マキシマムアタック E: 砂漠",
-    ["maximumattackeepisode1"] = "マキシマムアタック E: エピソード1",
-    ["maximumattackeepisode4"] = "マキシマムアタック E: エピソード4",
-    ["maximumattackeforest"] = "マキシマムアタック E: 森",
-    ["maximumattackegaldaval"] = "マキシマムアタック E: ギャルダバル",
-    ["maximumattackemine"] = "マキシマムアタック E: 坑道",
-    ["maximumattackeruins"] = "マキシマムアタック E: 遺跡",
-    ["maximumattackeseabed"] = "マキシマムアタック E: 海底",
-    ["maximumattackespaceship"] = "マキシマムアタック E: スペースシップ",
-    ["maximumattacketemple"] = "マキシマムアタック E: テンプル",
-    ["maximumattacketower"] = "マキシマムアタック E: タワー",
-    ["maximumattackevr"] = "マキシマムアタック E: VR",
-    ["mineoffensive"] = "マインオフェンシブ",
-    ["missingresearch"] = "消えた研究",
-    ["mopupoperation1"] = "掃討作戦 #1",
-    ["mopupoperation2"] = "掃討作戦 #2",
-    ["mopupoperation3"] = "掃討作戦 #3",
-    ["mopupoperation4"] = "掃討作戦 #4",
+    ["lostsoulblade"] = "奪われたソウルブレイド",
+    ["lostspiritstriker"] = "奪われたスピリットストライカー",
+    ["machinesattack"] = "襲いくる機械",
+    ["magnitudeofmetal"] = "鋼の心",
+    ["maximumattack1ver2"] = "マキシマムアタック1 Ver2",
+    ["maximumattack2ver2"] = "マキシマムアタック2 Ver2",
+    ["maximumattack3ver2"] = "マキシマムアタック3 Ver2",
+    ["maximumattack4thstage1a"] = "マキシマムアタック 第4ステージ -1A-",
+    ["maximumattack4thstage1b"] = "マキシマムアタック 第4ステージ -1B-",
+    ["maximumattack4thstage1c"] = "マキシマムアタック 第4ステージ -1C-",
+    ["maximumattack4thstage1r"] = "マキシマムアタック 第4ステージ -1R-",
+    ["maximumattack4thstage2a"] = "マキシマムアタック 第4ステージ -2A-",
+    ["maximumattack4thstage2b"] = "マキシマムアタック 第4ステージ -2B-",
+    ["maximumattack4thstage2c"] = "マキシマムアタック 第4ステージ -2C-",
+    ["maximumattack4thstage2r"] = "マキシマムアタック 第4ステージ -2R-",
+    ["maximumattack4thstage4a"] = "マキシマムアタック 第4ステージ -4A-",
+    ["maximumattack4thstage4b"] = "マキシマムアタック 第4ステージ -4B-",
+    ["maximumattack4thstage4c"] = "マキシマムアタック 第4ステージ -4C-",
+    ["maximumattack4thstage4r"] = "マキシマムアタック 第4ステージ -4R-",
+    ["maximumattackecave"] = "マキシマムアタックE：洞窟",
+    ["maximumattackecca"] = "マキシマムアタックE：中央管理区",
+    ["maximumattackecrater"] = "マキシマムアタックE：クレーター",
+    ["maximumattackedesert"] = "マキシマムアタックE：砂漠",
+    ["maximumattackeepisode1"] = "マキシマムアタックE：エピソード1",
+    ["maximumattackeepisode4"] = "マキシマムアタックE：エピソード4",
+    ["maximumattackeforest"] = "マキシマムアタックE：森林",
+    ["maximumattackegaldaval"] = "マキシマムアタックE：ガル・ダ・バル",
+    ["maximumattackemine"] = "マキシマムアタックE：坑道",
+    ["maximumattackeruins"] = "マキシマムアタックE：遺跡",
+    ["maximumattackeseabed"] = "マキシマムアタックE：海底",
+    ["maximumattackespaceship"] = "マキシマムアタックE：宇宙船",
+    ["maximumattacketemple"] = "マキシマムアタックE：神殿",
+    ["maximumattacketower"] = "マキシマムアタックE：タワー",
+    ["maximumattackevr"] = "マキシマムアタックE：VR",
+    ["mineoffensive"] = "坑道攻勢",
+    ["missingresearch"] = "調査部隊を追って",
+    ["mopupoperation1"] = "掃討作戦 第一号",
+    ["mopupoperation2"] = "掃討作戦 第二号",
+    ["mopupoperation3"] = "掃討作戦 第三号",
+    ["mopupoperation4"] = "掃討作戦 第四号",
     ["mycareer"] = "マイキャリア",
-    ["nativeresearch"] = "原生生物の調査",
-    ["newmopupoperation1"] = "新・掃討作戦 #1",
-    ["newmopupoperation2"] = "新・掃討作戦 #2",
-    ["newmopupoperation3"] = "新・掃討作戦 #3",
-    ["newmopupoperation4"] = "新・掃討作戦 #4",
-    ["newmopupoperation5"] = "新・掃討作戦 #5",
-    ["penumbralsurge1"] = "半影の奔流 #1",
-    ["penumbralsurge2"] = "半影の奔流 #2",
-    ["penumbralsurge3"] = "半影の奔流 #3",
-    ["penumbralsurge4"] = "半影の奔流 #4",
-    ["penumbralsurge5"] = "半影の奔流 #5",
-    ["penumbralsurge6"] = "半影の奔流 #6",
-    ["phantasmalworld1"] = "幻影の世界 #1",
-    ["phantasmalworld2"] = "幻影の世界 #2",
-    ["phantasmalworld3"] = "幻影の世界 #3",
-    ["phantasmalworld4"] = "幻影の世界 #4",
-    ["pioneerchristmas"] = "パイオニア・クリスマス",
+    ["nativeresearch"] = "大地の呼び声",
+    ["newmopupoperation1"] = "新掃討作戦第一号",
+    ["newmopupoperation2"] = "新掃討作戦第二号",
+    ["newmopupoperation3"] = "新掃討作戦第三号",
+    ["newmopupoperation4"] = "新掃討作戦第四号",
+    ["newmopupoperation5"] = "新掃討作戦第五号",
+    ["penumbralsurge1"] = "幻日の渦中に #1",
+    ["penumbralsurge2"] = "幻日の渦中に #2",
+    ["penumbralsurge3"] = "幻日の渦中に #3",
+    ["penumbralsurge4"] = "幻日の渦中に #4",
+    ["penumbralsurge5"] = "幻日の渦中に #5",
+    ["penumbralsurge6"] = "幻日の渦中に #6",
+    ["phantasmalworld1"] = "幻界の果てに １",
+    ["phantasmalworld2"] = "幻界の果てに ２",
+    ["phantasmalworld3"] = "幻界の果てに ３",
+    ["phantasmalworld4"] = "幻界の果てに ４",
+    ["pioneerchristmas"] = "パイオニア クリスマス",
     ["pioneerhalloween"] = "パイオニア・ハロウィン",
-    ["pioneerspirit"] = "開拓者精神",
+    ["pioneerspirit"] = "パイオニア・スピリット",
     ["planetragol"] = "惑星ラグオル",
-    ["pointofdisaster"] = "災厄の地点",
-    ["purplelamplight"] = "紫の灯火",
+    ["pointofdisaster"] = "災禍の中枢へ",
+    ["purplelamplight"] = "紫紺の灯火",
     ["pursuit"] = "追跡",
-    ["raidoncentraltower"] = "セントラルタワー襲撃",
+    ["raidoncentraltower"] = "中央塔強襲",
     ["randomattackxrdrev1"] = "ランダムアタック Xrd REV 1",
     ["randomattackxrdrev2"] = "ランダムアタック Xrd REV 2",
     ["randomattackxrdrev4"] = "ランダムアタック Xrd REV 4",
     ["randomattackxrdstage"] = "ランダムアタック Xrd ステージ",
     ["rappyhalloween"] = "ラッピー・ハロウィン",
     ["rappysholiday"] = "ラッピーの休日",
-    ["reachforthedream"] = "夢に手を伸ばして",
-    ["realitytruth"] = "現実と真実",
+    ["reachforthedream"] = "届け、この想い",
+    ["realitytruth"] = "現実と真実と",
     ["rescuefromragol"] = "ラグオルからの救出",
     ["respectivetomorrow"] = "それぞれの明日",
-    ["revisitingdarkness"] = "再訪する闇",
-    ["roadtonowhere"] = "どこにも続かない道",
+    ["revisitingdarkness"] = "再び闇へ",
+    ["roadtonowhere"] = "行き先のない道",
     ["ruinswreckage"] = "遺跡の残骸",
-    ["sacredground"] = "聖なる地",
-    ["scarletrealm1"] = "緋色の領域 #1",
-    ["scarletrealm2"] = "緋色の領域 #2",
-    ["scarletrealm3"] = "緋色の領域 #3",
-    ["scarletrealm4"] = "緋色の領域 #4",
+    ["sacredground"] = "深奥の遺子",
+    ["scarletrealm1"] = "スカーレット・ゾーン #1",
+    ["scarletrealm2"] = "スカーレット・ゾーン #2",
+    ["scarletrealm3"] = "スカーレット・ゾーン #3",
+    ["scarletrealm4"] = "スカーレット・ゾーン #4",
     ["seasonsshop"] = "シーズンショップ",
     ["seatoftheheart"] = "心の座",
-    ["secretdelivery"] = "秘密の配達",
+    ["secretdelivery"] = "ヒミツの届け物",
     ["seekingclues"] = "手がかりを求めて",
-    ["seekmymaster"] = "主を探して",
-    ["silentafterimage1"] = "静寂の残像 #1",
-    ["silentafterimage2"] = "静寂の残像 #2",
-    ["silentbeach"] = "静かなる浜辺",
+    ["seekmymaster"] = "ハンターの右腕",
+    ["silentafterimage1"] = "静かなる残像 #1",
+    ["silentafterimage2"] = "静かなる残像 #2",
+    ["silentbeach"] = "静寂の砂浜",
     ["simulator20"] = "シミュレーター 2.0",
-    ["singingbythebeach"] = "浜辺の歌",
-    ["solsticesnafu"] = "至点の混乱",
-    ["soulofablacksmith"] = "鍛冶屋の魂",
+    ["singingbythebeach"] = "海辺で唄えば",
+    ["solsticesnafu"] = "冬至の大騒動",
+    ["soulofablacksmith"] = "匠の魂",
     ["soulofsteel"] = "鋼の魂",
     ["subterraneanden"] = "地下の巣窟",
     ["subterraneanpatrol1"] = "地下パトロール #1",
     ["subterraneanpatrol2"] = "地下パトロール #2",
     ["subterraneanpatrol3"] = "地下パトロール #3",
-    ["sugoroku"] = "すごろく",
+    ["sugoroku"] = "ＳＵＧＯＲＯＫＵ",
     ["sweepupoperation1"] = "殲滅作戦 #1",
     ["sweepupoperation10"] = "殲滅作戦 #10",
     ["sweepupoperation11"] = "殲滅作戦 #11",
@@ -462,59 +492,59 @@ local JAQ = {
     ["sweepupoperation8"] = "殲滅作戦 #8",
     ["sweepupoperation9"] = "殲滅作戦 #9",
     ["tarewardshop"] = "TA報酬ショップ",
-    ["testspaceship1"] = "テスト/スペースシップ 1",
-    ["testspaceship2"] = "テスト/スペースシップ 2",
-    ["testspaceship3"] = "テスト/スペースシップ 3",
-    ["testspaceship4"] = "テスト/スペースシップ 4",
-    ["testspaceship5"] = "テスト/スペースシップ 5",
-    ["testvrtemple1"] = "テスト/VRテンプル 1",
-    ["testvrtemple2"] = "テスト/VRテンプル 2",
-    ["testvrtemple3"] = "テスト/VRテンプル 3",
-    ["testvrtemple4"] = "テスト/VRテンプル 4",
-    ["testvrtemple5"] = "テスト/VRテンプル 5",
-    ["thebeakscafever2"] = "ビークスカフェ Ver.2",
-    ["thechosen12"] = "選ばれし者 (1/2)",
-    ["thechosen22"] = "選ばれし者 (2/2)",
+    ["testspaceship1"] = "適合試験６ ＶＲ宇宙船１",
+    ["testspaceship2"] = "適合試験７ ＶＲ宇宙船２",
+    ["testspaceship3"] = "適合試験８ ＶＲ宇宙船３",
+    ["testspaceship4"] = "適合試験９ ＶＲ宇宙船４",
+    ["testspaceship5"] = "適合試験１０ ＶＲ宇宙船５",
+    ["testvrtemple1"] = "適合試験１ ＶＲ神殿１",
+    ["testvrtemple2"] = "適合試験２ ＶＲ神殿２",
+    ["testvrtemple3"] = "適合試験３ ＶＲ神殿３",
+    ["testvrtemple4"] = "適合試験４ ＶＲ神殿４",
+    ["testvrtemple5"] = "適合試験５ ＶＲ神殿５",
+    ["thebeakscafever2"] = "ビークス・カフェ Ver.2",
+    ["thechosen12"] = "選ばれし者（前編）",
+    ["thechosen22"] = "選ばれし者（後編）",
     ["theeasttower"] = "東の塔",
-    ["theeggshop"] = "タマゴショップ",
-    ["thefacility"] = "研究施設",
-    ["thefakeinyellow"] = "黄色い偽物",
-    ["thefinalcycle"] = "最後の周期",
-    ["theforge"] = "鍛冶場",
-    ["thegloomspire"] = "薄暗き尖塔",
-    ["thegravesbutler"] = "墓守の執事",
+    ["theeggshop"] = "エッグショップ",
+    ["thefacility"] = "地に塗れた施設",
+    ["thefakeinyellow"] = "黄色いフェイク",
+    ["thefinalcycle"] = "廻る時の終わりに",
+    ["theforge"] = "鍛冶工房",
+    ["thegloomspire"] = "闇の尖塔",
+    ["thegravesbutler"] = "グレイブ家の執事",
     ["thelostbride"] = "消えた花嫁",
-    ["thelostruins"] = "失われた遺跡",
+    ["thelostruins"] = "地下に眠る遺跡",
     ["themilitarystrikesback"] = "軍の逆襲",
     ["themissingmaracas"] = "消えたマラカス",
-    ["themutation"] = "突然変異",
-    ["therestlesslion"] = "眠れぬ獅子",
-    ["theretiredhunter"] = "引退したハンター",
-    ["therobotsreckoning"] = "ロボットの清算",
-    ["thetombstirs"] = "目覚める墓所",
-    ["thevalueofmoney"] = "お金の価値",
+    ["themutation"] = "突然変異体",
+    ["therestlesslion"] = "蠢動の獅子",
+    ["theretiredhunter"] = "隠居ハンター",
+    ["therobotsreckoning"] = "黄昏る遊具達",
+    ["thetombstirs"] = "胎動する墓",
+    ["thevalueofmoney"] = "サイフの紐",
     ["thewesttower"] = "西の塔",
-    ["thismustbetheplace"] = "ここがその場所",
-    ["todaysrate"] = "本日のレート",
-    ["torrentialwoods"] = "豪雨の森",
-    ["tothedeepestbluema4venue"] = "最も深い青へ -MA4会場-",
-    ["towardsthefuture"] = "未来へ向けて",
+    ["thismustbetheplace"] = "きっとここに",
+    ["todaysrate"] = "明日の代価",
+    ["torrentialwoods"] = "降りしきる雨の森",
+    ["tothedeepestbluema4venue"] = "最深の青へ -MA4会場-",
+    ["towardsthefuture"] = "未来へむかって",
     ["twilightsanctuary"] = "黄昏の聖域",
     ["tyrellsego"] = "タイレルのエゴ",
-    ["underworldpatrol1"] = "冥界パトロール #1",
-    ["unsealeddoor"] = "解かれた扉",
-    ["virtuallimits1"] = "仮想の限界 1",
-    ["virtuallimits2"] = "仮想の限界 2",
-    ["virtualvortex1"] = "仮想の渦 1",
-    ["virtualvortex2"] = "仮想の渦 2",
-    ["waroflimits1"] = "限界の戦争 #1",
-    ["waroflimits2"] = "限界の戦争 #2",
-    ["waroflimits3"] = "限界の戦争 #3",
-    ["waroflimits4"] = "限界の戦争 #4",
-    ["waroflimits5"] = "限界の戦争 #5",
+    ["underworldpatrol1"] = "地底パトロール #1",
+    ["unsealeddoor"] = "閉ざされた扉",
+    ["virtuallimits1"] = "バーチャルリミット #1",
+    ["virtuallimits2"] = "バーチャルリミット #2",
+    ["virtualvortex1"] = "バーチャルボルテックス #1",
+    ["virtualvortex2"] = "バーチャルボルテックス #2",
+    ["waroflimits1"] = "極幻の戦火へ １",
+    ["waroflimits2"] = "極幻の戦火へ ２",
+    ["waroflimits3"] = "極幻の戦火へ ３",
+    ["waroflimits4"] = "極幻の戦火へ ４",
+    ["waroflimits5"] = "極幻の戦火へ ５",
     ["warriorspride"] = "戦士の誇り",
-    ["waterfalltears"] = "滝の涙",
-    ["waterwayshadow"] = "水路の影",
+    ["waterfalltears"] = "帰らずの滝",
+    ["waterwayshadow"] = "水脈に潜む影",
 }
 -- Nom de quete affiche : traduit en japonais si la langue est "ja" (sinon le nom d'origine)
 local function QN(name)
@@ -534,8 +564,14 @@ local TM = {
     no_move = false,  -- verrouiller la position
     no_resize = true, -- verrouiller la taille
     scale = 1.6,      -- taille du chrono
+    x = -1, y = -1,   -- position de la fenetre du timer (-1 = par defaut)
+    w = 340, h = 130, -- taille de la fenetre du timer
     alpha = 0,        -- opacite du fond (0-100)
 }
+-- Touche pour ouvrir / fermer Quest Tracker (code touche Windows, nil = aucune)
+local HK = { vk = nil, capturing = false }
+-- Etat de la fenetre du timer : TU.apply = appliquer x/y/w/h saisis ; TU.preview = afficher hors quete (non sauvegarde)
+local TU = { apply = true, preview = false, dirty = nil, bufs = {} }
 local ANG_MAX = 3        -- Anguish : 3 niveaux (Ang1 a Ang3)
 local ang_auto = true   -- Anguish lu automatiquement dans le texte affiche par le jeu
 local ANG_BUF = 0x10CDC2BE  -- texte "Anguish N" du bloc affiche par le jeu (UTF-16)
@@ -573,16 +609,124 @@ local function char_text(ident)
     if cl then return string.format("%s (%s, %s)", name, cl, sid) end
     return name
 end
+-- Autres joueurs de la partie (hors moi) : "Nom|classe;Nom|classe" lu dans la table des joueurs (12 emplacements)
+local function other_players_text()
+    local ok, text = pcall(function()
+        local me = pso.read_u32(0x00A9C4F4)
+        local list = {}
+        for slot = 0, 11 do
+            if slot ~= me then
+                local player = pso.read_u32(0x00A94254 + 4 * slot)
+                if player ~= 0 then
+                    local name = pso.read_wstr(player + 0x428, 24)
+                    if string.sub(name, 1, 1) == "\t" then name = string.sub(name, 3) end
+                    name = name:gsub("[%c|;]", "")
+                    local cl = pso.read_u8(player + 0x961)
+                    if #name > 0 and cl <= 11 then list[#list + 1] = name .. "|" .. cl end
+                end
+            end
+        end
+        return table.concat(list, ";")
+    end)
+    if ok and type(text) == "string" then return text end
+    return ""
+end
 -- Affichage en colonne : nom en blanc, classe et ID en couleur
-local function draw_char_cell(ident)
+local function draw_char_cell(ident, hide_sid)
     local name, cl, sid = char_parts(ident)
     imgui.Text(#name > 12 and (string.sub(name, 1, 11) .. "..") or name)
     if cl then
         imgui.SameLine(0, 6)
         imgui.TextColored(0.6, 0.85, 1.0, 1, cl)
-        imgui.SameLine(0, 6)
-        imgui.TextColored(1.0, 0.85, 0.4, 1, sid)
+        if not hide_sid then
+            imgui.SameLine(0, 6)
+            imgui.TextColored(1.0, 0.85, 0.4, 1, sid)
+        end
     end
+end
+-- Section ID de la room : couleur par ID
+local SECTION_COLORS = {
+    Viridia = { 0.20, 0.80, 0.30 }, Greenill = { 0.65, 1.00, 0.55 }, Skyly = { 0.45, 0.85, 1.00 },
+    Bluefull = { 0.35, 0.55, 1.00 }, Purplenum = { 0.70, 0.40, 0.95 }, Pinkal = { 1.00, 0.55, 0.80 },
+    Redria = { 1.00, 0.25, 0.25 }, Oran = { 1.00, 0.60, 0.15 }, Yellowboze = { 1.00, 0.95, 0.30 },
+    Whitill = { 1.00, 1.00, 1.00 },
+}
+-- Section ID d'un run de l'historique : celle de la room (h.sec), sinon (anciens runs solo) celle du personnage
+local function history_section(h)
+    local sec = tonumber(h.room)
+    if sec and sec >= 0 and sec <= 9 then return SECTION_IDS[sec] end
+    if (h.pc or 0) < 2 and (h.ch or "") ~= "" then
+        local _, cl, sid = char_parts(h.ch)
+        if cl and sid ~= "?" then return sid end
+    end
+    return nil
+end
+
+-- Cellule "autres joueurs" : "Nom|classe;Nom|classe" -> noms blancs + classes en bleu (a la position x)
+local function draw_others_cell(pl, x)
+    if (pl or "") == "" then return end
+    imgui.SameLine(x)
+    local first = true
+    for entry in string.gmatch(pl, "[^;]+") do
+        local name, cl = string.match(entry, "^(.-)|(%d+)$")
+        if name then
+            if not first then imgui.SameLine(0, 14) end
+            imgui.Text(#name > 12 and (string.sub(name, 1, 11) .. "..") or name)
+            imgui.SameLine(0, 5)
+            imgui.TextColored(0.6, 0.85, 1.0, 1, CHAR_CLASSES[tonumber(cl)] or "?")
+            first = false
+        end
+    end
+end
+-- Cellule ID de la room
+-- Compteur par ID de room : q.secs = "6:42,0:32,u:3" (index de l'ID : nombre de runs ; u = inconnu)
+local SEC_INDEX = {}
+for i, n in pairs(SECTION_IDS) do SEC_INDEX[n] = i end
+local function secs_parse(str)
+    local t = {}
+    for k, v in string.gmatch(str or "", "(%w+):(%d+)") do t[k] = (t[k] or 0) + tonumber(v) end
+    return t
+end
+local function secs_text(t)
+    local keys = {}
+    for k in pairs(t) do keys[#keys + 1] = k end
+    table.sort(keys)
+    local parts = {}
+    for _, k in ipairs(keys) do parts[#parts + 1] = k .. ":" .. t[k] end
+    return table.concat(parts, ",")
+end
+local function secs_key(h)
+    local nm = history_section(h)
+    return nm and tostring(SEC_INDEX[nm]) or "u"
+end
+local function draw_room_cell(h)
+    local sec_name = history_section(h)
+    if sec_name then
+        local c = SECTION_COLORS[sec_name] or { 1, 1, 1 }
+        imgui.TextColored(c[1], c[2], c[3], 1, sec_name)
+    else
+        imgui.TextDisabled("-")
+    end
+end
+-- Time Attack : meilleur run valide de chaque quete (pour afficher son ID de room et ses autres joueurs)
+local function ta_pb_index()
+    local idx = {}
+    for _, h in ipairs(history) do
+        if h.ok and (h.dur or 0) > 0 then
+            local k = h.name .. "|" .. (h.diff or 0) .. "|" .. (h.ang or 0) .. "|" .. (h.pc or 0) .. "|" .. (h.ch or "") .. "|" .. (h.mode or "normal")
+            local cur = idx[k]
+            if not cur or h.dur < cur.dur then idx[k] = h end
+        end
+    end
+    return idx
+end
+local function ta_pb_run(idx, s, mode_idx)
+    local best
+    for _, m in ipairs(mode_idx == 3 and { "solo", "normal" } or { mode_idx == 1 and "solo" or "normal" }) do
+        local h = idx[s.name .. "|" .. (s.diff or 0) .. "|" .. (s.ang or 0) .. "|" .. (s.pc or 0) .. "|" .. (s.ch or "") .. "|" .. m]
+        if h and (not best or h.dur < best.dur) then best = h end
+    end
+    return best
 end
 -- Texte propre du nombre de joueurs : "Solo", "2 joueurs"...
 local function players_label(pc)
@@ -611,10 +755,10 @@ local function save()
     for ep, quests in pairs(data) do
         f:write(string.format("[%d]={\n", ep))
         for key, q in pairs(quests) do
-            f:write(string.format("[%q]={id=%d,diff=%d,count=%d,best=%s,total=%d,name=%q,mode=%q,done=%d,dtotal=%d,vbest=%s,ang=%d,pc=%d,ch=%q,fcount=%d,ftotal=%d,fbest=%s},\n",
+            f:write(string.format("[%q]={id=%d,diff=%d,count=%d,best=%s,total=%d,name=%q,mode=%q,done=%d,dtotal=%d,vbest=%s,ang=%d,pc=%d,ch=%q,fcount=%d,ftotal=%d,fbest=%s,secs=%q},\n",
                 key, q.id, q.diff, q.count, q.best and tostring(q.best) or "nil", q.total, q.name,
                 q.mode or "normal", q.done or 0, q.dtotal or 0, q.vbest and tostring(q.vbest) or "nil", q.ang or 0, q.pc or 0, q.ch or "",
-                q.fcount or 0, q.ftotal or 0, q.fbest and tostring(q.fbest) or "nil"))
+                q.fcount or 0, q.ftotal or 0, q.fbest and tostring(q.fbest) or "nil", q.secs or ""))
         end
         f:write("},\n")
     end
@@ -644,6 +788,11 @@ local function load_data()
                         for _, f in ipairs({ "count", "total", "done", "dtotal", "fcount", "ftotal" }) do
                             o[f] = (o[f] or 0) + (q[f] or 0)
                         end
+                        if q.secs or o.secs then
+                            local a, b2 = secs_parse(o.secs), secs_parse(q.secs)
+                            for k2, v2 in pairs(b2) do a[k2] = (a[k2] or 0) + v2 end
+                            o.secs = secs_text(a)
+                        end
                         for _, f in ipairs({ "best", "vbest", "fbest" }) do
                             if q[f] and (not o[f] or q[f] < o[f]) then o[f] = q[f] end
                         end
@@ -662,9 +811,9 @@ local function save_history()
     if not f then return end
     f:write("return {\n")
     for _, h in ipairs(history) do
-        f:write(string.format("{at=%d,ep=%d,diff=%d,mode=%q,name=%q,dur=%d,ok=%s,why=%q,ang=%d,pc=%d,ch=%q},\n",
+        f:write(string.format("{at=%d,ep=%d,diff=%d,mode=%q,name=%q,dur=%d,ok=%s,why=%q,ang=%d,pc=%d,ch=%q,room=%d,pl=%q,me=%q},\n",
             h.at, h.ep, h.diff, h.mode or "normal", h.name, h.dur,
-            h.ok == nil and "nil" or tostring(h.ok), h.why or "", h.ang or 0, h.pc or 0, h.ch or ""))
+            h.ok == nil and "nil" or tostring(h.ok), h.why or "", h.ang or 0, h.pc or 0, h.ch or "", tonumber(h.room) or -1, h.pl or "", h.me or ""))
     end
     f:write("}\n")
     f:close()
@@ -685,6 +834,10 @@ local function load_history()
             h.ang = h.ang or 0
             h.pc = h.pc or 0
             h.ch = h.ch or ""
+            h.pl = type(h.pl) == "string" and h.pl or ""
+            h.me = type(h.me) == "string" and h.me or ""
+            h.sec = nil
+            if not (tonumber(h.room) and h.room >= 0 and h.room <= 9) then h.room = nil end
             table.insert(history, h)
         end
     end
@@ -795,10 +948,10 @@ local function save_settings()
         if v then fl[#fl + 1] = string.format("[%q] = true", k) end
     end
     table.sort(fl)
-    f:write(string.format("return { no_title = %s, mode_pref = %q, profile = %q, ang_level = %d, ang_auto = %s, lang = %q, tm = { enabled = %s, name = %s, pb = %s, colors = %s, bold = %s, no_move = %s, no_resize = %s, scale = %.1f, alpha = %d }, free = { %s } }\n",
+    f:write(string.format("return { no_title = %s, mode_pref = %q, profile = %q, ang_level = %d, ang_auto = %s, lang = %q, tm = { enabled = %s, name = %s, pb = %s, colors = %s, bold = %s, no_move = %s, no_resize = %s, scale = %.1f, alpha = %d, x = %d, y = %d, w = %d, h = %d }, hotkey = %d, free = { %s } }\n",
         tostring(no_title), mode_pref, PROFILE, ang_level, tostring(ang_auto), LANG,
         tostring(TM.enabled), tostring(TM.name), tostring(TM.pb), tostring(TM.colors), tostring(TM.bold),
-        tostring(TM.no_move), tostring(TM.no_resize), TM.scale, TM.alpha, table.concat(fl, ", ")))
+        tostring(TM.no_move), tostring(TM.no_resize), TM.scale, TM.alpha, TM.x, TM.y, TM.w, TM.h, HK.vk or 0, table.concat(fl, ", ")))
     f:close()
 end
 
@@ -817,6 +970,7 @@ local function load_settings()
                     if type(t.tm[k]) == type(v) then TM[k] = t.tm[k] end
                 end
             end
+            if type(t.hotkey) == "number" and t.hotkey >= 8 and t.hotkey <= 254 then HK.vk = math.floor(t.hotkey) end
             if type(t.free) == "table" then
                 for k, v in pairs(t.free) do
                     if v == true and type(k) == "string" then FREE[k] = true end
@@ -1041,6 +1195,13 @@ local function end_run(reason)
     dbg(string.format("FIN run id=%s raison=%s finished=%s wait_start=%s dur=%s", tostring(run.id), tostring(reason),
         tostring(run.finished), tostring(run.wait_start), tostring(os.time() - run.start)))
     current = nil
+    -- Run fantome : le declencheur de depart n'a jamais ete vu ET le joueur n'est jamais sorti de Pioneer 2.
+    -- Cela arrive quand la quete reste chargee apres la fin (tous les autres joueurs sont partis et on reste seul) :
+    -- ce n'est pas une vraie partie, on ne l'enregistre pas (ni historique, ni compteur, ni PB).
+    if run.wait_start and not run.left_p2 then
+        dbg(string.format("run ignore (jamais demarre) id=%s raison=%s", tostring(run.id), tostring(reason)))
+        return
+    end
     -- debut jamais detecte (ex. quete quittee avant le terrain) : on retombe sur la prise au comptoir
     if run.wait_start then run.start = run.load_at or run.start; run.wait_start = false end
     -- Filet de securite : si on est parti si vite que le message de fin n'a pas ete vu, on relit une
@@ -1069,6 +1230,12 @@ local function end_run(reason)
     q.name = run.name -- met à jour les anciens "Quest N"
     q.count = q.count + 1
     q.total = q.total + dur
+    do -- ID de la room de ce run
+        local t = secs_parse(q.secs)
+        local sk = secs_key({ room = run.section, pc = run.pc, ch = run.ch })
+        t[sk] = (t[sk] or 0) + 1
+        q.secs = secs_text(t)
+    end
     -- suivi libre : tous les runs (meme non termines) comptent a part, sans toucher aux runs valides
     local free_ok = FREE[free_key(run.name)] and dur >= FREE_MIN and not run.dead
     data[run.ep][key] = q
@@ -1101,6 +1268,9 @@ local function end_run(reason)
     end
     local entry = {
         at = run.start, ep = run.ep, diff = run.diff, mode = run.mode, ang = run.ang or 0, pc = run.pc or 0, ch = run.ch or "",
+        room = (tonumber(run.section) and run.section >= 0 and run.section <= 9) and run.section or nil,
+        pl = run.pl or "",
+        me = run.me or run.ch or "",
         name = run.name, dur = dur, ok = completed, why = why,
     }
     history[#history + 1] = entry
@@ -1183,12 +1353,36 @@ end
 local blocked_id = nil   -- quête terminée au retour P2 : pas de relance
 local p2_since = nil     -- depuis quand on est hors zone de combat
 
+-- Section ID de la room : lue dans le message que le jeu affiche a l'arrivee dans la partie ("ID Redria Drop ... Rare ...")
+local function update_room_section()
+    local ok, text = pcall(function()
+        local ptr = pso.read_u32(pso.base_address + 0x006AECC8)
+        if ptr ~= 0 then return pso.read_wstr(ptr + 0x14, 0xFF) end
+        return ""
+    end)
+    if not ok or type(text) ~= "string" or text == ROOM.last then return end
+    ROOM.last = text
+    local id_index = string.find(text, "ID", 1, true)
+    local drop_index = string.find(text, "Drop", 1, true)
+    if id_index and drop_index and drop_index > id_index and string.find(text, "Rare", 1, true) then
+        local name = string.match(string.sub(text, id_index + 2, drop_index - 1), "%a+")
+        for index, label in pairs(SECTION_IDS) do
+            if label == name then
+                ROOM.sec = index
+                return
+            end
+        end
+    end
+end
+
+
 local function update()
+    pcall(update_room_section)
     if ang_auto then
         local ok_a, e_a = pcall(ang_read)
         if not ok_a then ANGS.err = tostring(e_a) end
         ANGS.tick = (ANGS.tick or 0) + 1
-        if ANGS.tick % 180 == 1 then
+        if DEBUG_LOG and ANGS.tick % 180 == 1 then   -- fichier de diagnostic : seulement si DEBUG_LOG = true
             local nc = 0
             for _ in pairs(ANGS.cand) do nc = nc + 1 end
             local f = io.open("addons/QuestTracker/ang_status.txt", "w+")
@@ -1247,6 +1441,7 @@ local function update()
                             current.invalid_reason = "member_joined"
                         else
                             current.n0 = n -- arrivee hors quete gouvernementale : le run reste valide
+                            current.pl = other_players_text()
                         end
                         current.n_since = nil
                     end
@@ -1269,6 +1464,8 @@ local function update()
                 current.start = os.time() - (STARTS.offset[qid] or 0)
                 current.pc = party_size()
                 current.ch = (current.pc < 2) and my_char_name() or ""
+                current.me = my_char_name()
+                current.pl = (current.pc >= 2) and other_players_text() or ""
                 current.wait_start = false
                 dbg("DEPART detecte etage " .. tostring(floor))
             end
@@ -1368,12 +1565,14 @@ local function update()
             name = get_quest_name(qid),
             ep = pso.read_u32(ADDR_EPISODE),
             diff = pso.read_u32(ADDR_DIFFICULTY),
-            section = pso.read_u32(ADDR_SECTION_ID),
+            section = ROOM.sec,
             mode = resolve_mode(),
             ang = (pso.read_u32(ADDR_DIFFICULTY) == 3) and ang_current() or 0, -- Anguish : Ultimate uniquement
             pc = party_size(), -- joueurs presents (relu au depart reel de la quete)
         }
         current.ch = (current.pc < 2) and my_char_name() or "" -- personnage : seulement en solo
+        current.me = my_char_name() -- mon personnage, toujours (affichage de l'historique)
+        current.pl = (current.pc >= 2) and other_players_text() or "" -- autres joueurs (parties a plusieurs)
         -- quete gouvernementale ("1-1:Planet Ragol", "5-1:Test/VR Temple 1"...)
         current.gov = string.match(current.name or "", "^%d+%-%d+:") ~= nil
         -- le chrono attend le declencheur de debut (registre / interrupteur / arrivee sur le terrain)
@@ -1820,6 +2019,47 @@ end
 -- Grille de quetes : 3 colonnes (bouton + nombre de runs), pour que les longues categories
 -- tiennent a l'ecran. items = { {name=..., count=...}, ... }
 local GRID_X = { 0, 330, 640 }
+-- Texte "xN" d'une quete ; au survol : repartition des runs par ID de room
+local function quest_count_text(ep, name, count)
+    if count <= 0 then
+        imgui.TextColored(0.5, 0.5, 0.5, 1, "x0")
+        return
+    end
+    imgui.TextColored(0.5, 1, 0.5, 1, "x" .. count)
+    if not imgui.IsItemHovered() then return end
+    local agg, total = {}, 0
+    local k = norm_name(name)
+    for _, q in pairs(data[ep] or {}) do
+        if norm_name(q.name) == k then
+            total = total + (q.count or 0)
+            for sk, v in pairs(secs_parse(q.secs)) do agg[sk] = (agg[sk] or 0) + v end
+        end
+    end
+    local rows, known = {}, 0
+    for i = 0, 9 do
+        local v = agg[tostring(i)]
+        if v and v > 0 and SECTION_IDS[i] then
+            rows[#rows + 1] = { SECTION_IDS[i], v }
+            known = known + v
+        end
+    end
+    table.sort(rows, function(a, b) return a[2] > b[2] end)
+    imgui.BeginTooltip()
+    imgui.Text(T("Runs par ID de room"))
+    for _, r in ipairs(rows) do
+        local c = SECTION_COLORS[r[1]] or { 1, 1, 1 }
+        imgui.TextColored(c[1], c[2], c[3], 1, r[1])
+        imgui.SameLine(110)
+        imgui.Text(string.format("x%d  (%d%%)", r[2], math.floor(r[2] * 100 / math.max(1, total) + 0.5)))
+    end
+    if total - known > 0 then
+        imgui.TextDisabled(T("ID inconnu"))
+        imgui.SameLine(110)
+        imgui.TextDisabled(string.format("x%d", total - known))
+    end
+    imgui.EndTooltip()
+end
+
 local function quest_grid(items, uid)
     local cols = #GRID_X
     local rows = math.ceil(#items / cols)
@@ -1831,11 +2071,7 @@ local function quest_grid(items, uid)
                 if c > 1 then imgui.SameLine(GRID_X[c]) end
                 quest_button(it.name, uid)
                 imgui.SameLine(0, 6)
-                if it.count > 0 then
-                    imgui.TextColored(0.5, 1, 0.5, 1, "x" .. it.count)
-                else
-                    imgui.TextColored(0.5, 0.5, 0.5, 1, "x0")
-                end
+                quest_count_text(list_ep, it.name, it.count)
             end
         end
     end
@@ -2054,11 +2290,7 @@ local function draw_quest_list()
                         local c = counts[norm_name(n)] or 0
                         quest_button(n, "sf" .. ep)
                         imgui.SameLine(0, 18)
-                        if c > 0 then
-                            imgui.TextColored(0.5, 1, 0.5, 1, "x" .. c)
-                        else
-                            imgui.TextColored(0.5, 0.5, 0.5, 1, "x0")
-                        end
+                        quest_count_text(ep, n, c)
                         imgui.SameLine(0, 18)
                         imgui.TextColored(0.6, 0.6, 0.6, 1, T(LIST_EP_LABELS[ep]) .. " - " .. T(group.cat))
                         imgui.Spacing()
@@ -2070,7 +2302,7 @@ local function draw_quest_list()
                     found = found + 1
                     quest_button(names[k], "sa" .. ep)
                     imgui.SameLine(0, 18)
-                    imgui.TextColored(0.5, 1, 0.5, 1, "x" .. c)
+                    quest_count_text(ep, names[k], c)
                     imgui.SameLine(0, 18)
                     imgui.TextColored(0.6, 0.6, 0.6, 1, T(LIST_EP_LABELS[ep]) .. " - " .. T("Autres"))
                     imgui.Spacing()
@@ -2160,16 +2392,20 @@ local function draw_history()
     imgui.TextDisabled(T("Mode"))
     imgui.SameLine(430)
     imgui.TextDisabled(T("Difficulte"))
-    imgui.SameLine(520)
-    imgui.TextDisabled(T("Anguish"))
+    imgui.SameLine(500)
+    imgui.TextDisabled("ID")
     imgui.SameLine(600)
+    imgui.TextDisabled(T("Anguish"))
+    imgui.SameLine(670)
     imgui.TextDisabled(T("Joueurs"))
-    imgui.SameLine(700)
+    imgui.SameLine(760)
     imgui.TextDisabled(T("Personnage"))
-    imgui.SameLine(980)
+    imgui.SameLine(1000)
     imgui.TextDisabled(T("Temps"))
-    imgui.SameLine(1050)
+    imgui.SameLine(1060)
     imgui.TextDisabled(T("Valide"))
+    imgui.SameLine(1140)
+    imgui.TextDisabled(T("Autres joueurs"))
     imgui.Separator()
 
     if total == 0 then
@@ -2186,27 +2422,30 @@ local function draw_history()
         imgui.Text(T(MODE_NAMES[h.mode] or "?"))
         imgui.SameLine(430)
         imgui.TextColored(1, 0.8, 0.4, 1, DIFF_NAMES[h.diff] or "?")
-        imgui.SameLine(520)
+        imgui.SameLine(500)
+        draw_room_cell(h)
+        imgui.SameLine(600)
         if (h.ang or 0) > 0 then
             imgui.TextColored(1, 0.5, 0.5, 1, "Ang" .. h.ang)
         else
             imgui.TextDisabled(T("-"))
         end
-        imgui.SameLine(600)
+        imgui.SameLine(670)
         if (h.pc or 0) >= 2 then
             imgui.TextColored(0.6, 0.85, 1.0, 1, players_label(h.pc))
         else
             imgui.TextDisabled(players_label(0))
         end
-        imgui.SameLine(700)
-        if (h.pc or 0) < 2 and (h.ch or "") ~= "" then
-            draw_char_cell(h.ch)
+        imgui.SameLine(760)
+        local who = ((h.ch or "") ~= "") and h.ch or (h.me or "")
+        if who ~= "" then
+            draw_char_cell(who)
         else
             imgui.TextDisabled("-")
         end
-        imgui.SameLine(980)
+        imgui.SameLine(1000)
         imgui.Text(fmt(h.dur))
-        imgui.SameLine(1050)
+        imgui.SameLine(1060)
         if h.ok then
             imgui.TextColored(0.4, 1, 0.5, 1, T("Valide"))
             if imgui.IsItemHovered() then
@@ -2222,6 +2461,7 @@ local function draw_history()
                 imgui.EndTooltip()
             end
         end
+        draw_others_cell(h.pl, 1140)
         imgui.Spacing()
     end
 end
@@ -2282,7 +2522,7 @@ end
 -- affichee uniquement pendant un run (meme si Quest Tracker est fermee).
 -- Tu peux la deplacer en la faisant glisser par le timer.
 -- Contenu du timer (utilise par la fenetre en quete et par l'apercu de l'onglet Timer)
-local function timer_body(name, dur, pb, paused)
+local function timer_body(name, dur, pb, paused, avg)
     if TM.name then
         local n = tostring(name or "")
         local jn = QN(n)
@@ -2313,13 +2553,17 @@ local function timer_body(name, dur, pb, paused)
             else
                 imgui.TextColored(1.0, 0.62, 0.35, 1, "+" .. fmt(d))
             end
+            if avg then
+                imgui.SameLine(0, 14)
+                imgui.TextDisabled(T("Average") .. " " .. fmt(avg))
+            end
         else
             imgui.TextDisabled(T("Pas encore de PB"))
         end
     end
 end
 
-local function draw_timer_window()
+local function draw_timer_window(preview)
     local pushed = 0
     for _, c in ipairs({
         { "WindowBg", 0.05, 0.06, 0.11, TM.alpha / 100 },
@@ -2327,12 +2571,20 @@ local function draw_timer_window()
     }) do
         if pcall(imgui.PushStyleColor, c[1], c[2], c[3], c[4], c[5]) then pushed = pushed + 1 end
     end
-    pcall(imgui.SetNextWindowSize, 340, 130, "FirstUseEver")
+    if TU.apply then
+        if TM.x >= 0 and TM.y >= 0 then pcall(imgui.SetNextWindowPos, TM.x, TM.y, "Always") end
+        pcall(imgui.SetNextWindowSize, TM.w, TM.h, "Always")
+        TU.apply = false
+    else
+        pcall(imgui.SetNextWindowSize, TM.w, TM.h, "FirstUseEver")
+    end
     local flags = { "NoTitleBar", "NoScrollbar" }
     if TM.no_move then flags[#flags + 1] = "NoMove" end
     if TM.no_resize then flags[#flags + 1] = "NoResize" end
     local ok = imgui.Begin("Quest Timer", true, flags)
-    if ok then
+    if ok and preview then
+        timer_body("Mop-up Operation #1", 201, 240, false, 262)
+    elseif ok then
         local q = data[current.ep] and data[current.ep][run_key(current.id, current.diff, current.mode, current.ang, current.pc, current.ch)]
         -- premier run d'un personnage : on compare a l'ancien PB sans personnage (runs d'avant cette fonction)
         if (not q or not (q.vbest or q.best)) and (current.ch or "") ~= "" then
@@ -2355,7 +2607,35 @@ local function draw_timer_window()
         if current.wait_start then shown_dur = 0 end
         -- Simulator 2.0 : le chrono reste a 0:00 tant que le message "Stage 1" n'est pas apparu
         if free_key(current.name) == "simulator20" and not current.sim_started then shown_dur = 0 end
-        timer_body(current.name or "", shown_dur, pb, current.pause_since ~= nil)
+        -- moyenne des runs valides de cette quete (meme difficulte / Anguish / joueurs), tous modes confondus
+        local avg
+        do
+            local n, tot = 0, 0
+            if data[current.ep] then
+                for _, e in pairs(data[current.ep]) do
+                    if e.id == current.id and e.diff == current.diff and (e.ang or 0) == (current.ang or 0)
+                       and (e.pc or 0) == (current.pc or 0) and ((current.ch or "") == "" or (e.ch or "") == (current.ch or "") or (e.ch or "") == "")
+                       and (e.done or 0) > 0 then
+                        n = n + e.done
+                        tot = tot + (e.dtotal or 0)
+                    end
+                end
+            end
+            if n > 0 and tot > 0 then avg = math.floor(tot / n + 0.5) end
+        end
+        timer_body(current.name or "", shown_dur, pb, current.pause_since ~= nil, avg)
+    end
+    if ok then -- on garde la position / taille reelles (deplacement a la souris)
+        local okp, wx, wy = pcall(imgui.GetWindowPos)
+        local oks, ww, wh = pcall(imgui.GetWindowSize)
+        if okp and type(wx) == "number" and type(wy) == "number" then
+            wx, wy = math.floor(wx + 0.5), math.floor(wy + 0.5)
+            if wx ~= TM.x or wy ~= TM.y then TM.x, TM.y = wx, wy; TU.dirty = os.clock() end
+        end
+        if oks and type(ww) == "number" and type(wh) == "number" then
+            ww, wh = math.floor(ww + 0.5), math.floor(wh + 0.5)
+            if ww ~= TM.w or wh ~= TM.h then TM.w, TM.h = ww, wh; TU.dirty = os.clock() end
+        end
     end
     imgui.End()
     for _ = 1, pushed do pcall(imgui.PopStyleColor) end
@@ -2401,9 +2681,57 @@ local function draw_timer_tab()
     imgui.Spacing()
     imgui.Separator()
     imgui.Spacing()
+    imgui.TextColored(ACCENT[1], ACCENT[2], ACCENT[3], 1, T("Position et taille du timer"))
+    if imgui.Checkbox(T("Afficher le timer maintenant (pour le placer)") .. "##tu_prev", TU.preview) then
+        TU.preview = not TU.preview
+    end
+    for _, f in ipairs({ { "x", "Position X" }, { "y", "Position Y" }, { "w", "Largeur" }, { "h", "Hauteur" } }) do
+        local key = f[1]
+        imgui.Text(T(f[2]))
+        imgui.SameLine(220)
+        local buf = TU.bufs[key]
+        if buf == nil then buf = tostring(TM[key]); TU.bufs[key] = buf end
+        pcall(imgui.PushItemWidth, 80)
+        local changed, text = imgui.InputText("##tu_" .. key, buf, 8)
+        pcall(imgui.PopItemWidth)
+        local active = false
+        local oka, act = pcall(imgui.IsItemActive)
+        if oka and act then active = true end
+        if changed and type(text) == "string" then
+            TU.bufs[key] = text
+            local n = tonumber(text)
+            if n then
+                n = math.floor(n)
+                if key == "w" then n = math.max(120, math.min(2000, n)) elseif key == "h" then n = math.max(60, math.min(1200, n)) else n = math.max(0, math.min(4000, n)) end
+                TM[key] = n
+                TU.apply = true
+                TU.dirty = os.clock()
+            end
+        elseif not active and tostring(TM[key]) ~= TU.bufs[key] then
+            TU.bufs[key] = tostring(TM[key]) -- la fenetre a ete deplacee a la souris
+        end
+        imgui.SameLine(0, 8)
+        if imgui.Button("-##tu_m" .. key) then
+            TM[key] = math.max(key == "w" and 120 or (key == "h" and 60 or 0), TM[key] - 10)
+            if TM.x < 0 then TM.x = 0 end
+            if TM.y < 0 then TM.y = 0 end
+            TU.apply = true; TU.dirty = os.clock()
+        end
+        imgui.SameLine(0, 4)
+        if imgui.Button("+##tu_p" .. key) then
+            TM[key] = TM[key] + 10
+            if TM.x < 0 then TM.x = 0 end
+            if TM.y < 0 then TM.y = 0 end
+            TU.apply = true; TU.dirty = os.clock()
+        end
+    end
+    imgui.TextDisabled(T("Tu peux aussi deplacer le timer a la souris : les valeurs se mettent a jour."))
+    imgui.Spacing()
+    imgui.Separator()
+    imgui.Spacing()
     imgui.TextColored(ACCENT[1], ACCENT[2], ACCENT[3], 1, T("Apercu"))
     imgui.Spacing()
-    timer_body("Mop-up Operation #1", 201, 240)
+    timer_body("Mop-up Operation #1", 201, 240, false, 262)
 end
 
 -- Onglet Time Attack / Personal Best : tableau en deux colonnes,
@@ -2523,10 +2851,12 @@ local function draw_counters()
     imgui.Spacing()
 
     -- colonnes : nom | difficulte | nombre | PB | moyenne
-    local X_DIFF, X_PL, X_CH, X_COUNT, X_PB, X_AVG, X_OK = 330, 420, 510, 800, 910, 1020, 1140
+    local X_DIFF, X_ID, X_PL, X_CH, X_COUNT, X_PB, X_AVG, X_OK, X_OTH = 330, 410, 500, 580, 800, 890, 990, 1090, 1170
     imgui.TextColored(ACCENT[1], ACCENT[2], ACCENT[3], 1, T("Quete"))
     imgui.SameLine(X_DIFF)
     imgui.TextDisabled(T("Diff."))
+    imgui.SameLine(X_ID)
+    imgui.TextDisabled("ID")
     imgui.SameLine(X_PL)
     imgui.TextDisabled(T("Joueurs"))
     imgui.SameLine(X_CH)
@@ -2539,8 +2869,11 @@ local function draw_counters()
     imgui.TextDisabled(T("Moyenne"))
     imgui.SameLine(X_OK)
     imgui.TextDisabled(T("Valide"))
+    imgui.SameLine(X_OTH)
+    imgui.TextDisabled(T("Autres joueurs"))
     imgui.Separator()
 
+    local pb_index = ta_pb_index()
     local shown = 0
     for _, s in ipairs(list) do
         local c = s[mode_key]
@@ -2558,15 +2891,19 @@ local function draw_counters()
                 end
             end
         end
-        if c and c.count > 0 and (ta_diff == nil or ta_diff == s.diff) and not (ta_char and (s.pc or 0) < 2 and s.ch ~= ta_char) then
+        if c and c.count > 0 and (ta_diff == nil or ta_diff == s.diff) and not (ta_char and ((s.pc or 0) >= 2 or s.ch ~= ta_char)) then
             shown = shown + 1
             imgui.Text(QN(s.name))
             imgui.SameLine(X_DIFF)
             imgui.TextColored(1, 0.8, 0.4, 1, (DIFF_NAMES[s.diff] or "?") .. (s.ang > 0 and (" Ang" .. s.ang) or ""))
+            local pb_run = ta_pb_run(pb_index, s, ta_mode_idx)
+            imgui.SameLine(X_ID)
+            draw_room_cell(pb_run or { pc = s.pc, ch = s.ch })
             imgui.SameLine(X_PL)
             imgui.TextColored(0.6, 0.85, 1.0, 1, players_label(s.pc))
             imgui.SameLine(X_CH)
-            if (s.pc or 0) < 2 and (s.ch or "") ~= "" then draw_char_cell(s.ch) else imgui.TextDisabled("-") end
+            local who = (pb_run and ((pb_run.ch or "") ~= "" and pb_run.ch or pb_run.me)) or s.ch or ""
+            if who ~= "" then draw_char_cell(who) else imgui.TextDisabled("-") end
             imgui.SameLine(X_COUNT)
             imgui.Text(string.format("x%d", c.count))
             imgui.SameLine(X_PB)
@@ -2575,6 +2912,7 @@ local function draw_counters()
             imgui.TextColored(0.7, 0.7, 0.7, 1, fmt(math.floor(c.total / c.count)))
             imgui.SameLine(X_OK)
             imgui.TextColored(0.4, 1, 0.5, 1, T("Valide"))
+            if pb_run then draw_others_cell(pb_run.pl, X_OTH) end
         end
     end
     if shown == 0 then
@@ -2588,7 +2926,7 @@ local function draw_counters()
             local qm = (q.mode == "solo") and 1 or 2
             if (q.fcount or 0) > 0 and FREE[free_key(q.name)] and (ta_mode_idx == 3 or ta_mode_idx == qm)
                and (ta_diff == nil or ta_diff == q.diff) and quest_matches(q.name, query)
-               and not (ta_char and (q.pc or 0) < 2 and (q.ch or "") ~= ta_char) then
+               and not (ta_char and ((q.pc or 0) >= 2 or (q.ch or "") ~= ta_char)) then
                 local k = q.name .. "_" .. q.diff .. "_" .. (q.ang or 0) .. "_" .. (q.pc or 0) .. "_" .. (q.ch or "")
                 local e = frees[k]
                 if not e then
@@ -2621,10 +2959,12 @@ local function draw_counters()
             imgui.Text(QN(e.name))
             imgui.SameLine(X_DIFF)
             imgui.TextColored(1, 0.8, 0.4, 1, (DIFF_NAMES[e.diff] or "?") .. (e.ang > 0 and (" Ang" .. e.ang) or ""))
+            imgui.SameLine(X_ID)
+            draw_room_cell({ pc = e.pc, ch = e.ch })
             imgui.SameLine(X_PL)
             imgui.TextColored(0.6, 0.85, 1.0, 1, players_label(e.pc))
             imgui.SameLine(X_CH)
-            if (e.pc or 0) < 2 and (e.ch or "") ~= "" then draw_char_cell(e.ch) else imgui.TextDisabled("-") end
+            if (e.ch or "") ~= "" then draw_char_cell(e.ch) else imgui.TextDisabled("-") end
             imgui.SameLine(X_COUNT)
             imgui.Text(string.format("x%d", e.count))
             imgui.SameLine(X_PB)
@@ -2696,6 +3036,7 @@ function RBR.squash(text)
 end
 
 function RBR.log(text)
+    if not DEBUG_LOG then return end   -- fichier de diagnostic : seulement si DEBUG_LOG = true
     if RBR.logged >= 40 then return end
     RBR.logged = RBR.logged + 1
     pcall(function()
@@ -3029,6 +3370,101 @@ function RBR.draw()
     end
 end
 
+-- Nom de la touche tel qu'ecrit sur TON clavier (API Windows si disponible, sinon table de secours)
+local HK_NAMES = {
+    [8] = "Backspace", [9] = "Tab", [13] = "Enter", [19] = "Pause", [20] = "Verr Maj", [32] = "Space", [33] = "Page Up", [34] = "Page Down",
+    [35] = "End", [36] = "Home", [37] = "Left", [38] = "Up", [39] = "Right", [40] = "Down", [45] = "Insert",
+    [106] = "Num *", [107] = "Num +", [109] = "Num -", [110] = "Num .", [111] = "Num /", [144] = "Verr Num", [145] = "Arret defil",
+    [186] = "$", [187] = "=", [188] = ",", [189] = "-", [190] = ";", [191] = ":", [192] = "u", [219] = ")", [220] = "*", [221] = "^", [222] = "2", [223] = "!",
+}
+HK_NAMES[192] = "\195\185"   -- ù
+HK_NAMES[222] = "\194\178"   -- ²
+local hk_cache, hk_ffi = {}, nil
+local function hk_api_name(vk)
+    if hk_ffi == nil then
+        hk_ffi = false
+        local ok = pcall(function()
+            local ffi = require("ffi")
+            ffi.cdef[[
+                unsigned int MapVirtualKeyW(unsigned int code, unsigned int mapType);
+                int GetKeyNameTextW(long lParam, uint16_t *buffer, int size);
+            ]]
+            hk_ffi = ffi
+        end)
+        if not ok and not hk_ffi then
+            -- cdef deja fait (rechargement) : on tente quand meme d'utiliser ffi
+            local ok2, ffi2 = pcall(require, "ffi")
+            if ok2 then hk_ffi = ffi2 end
+        end
+    end
+    if not hk_ffi then return nil end
+    local ok, name = pcall(function()
+        local ffi = hk_ffi
+        local C = ffi.C
+        local scan = C.MapVirtualKeyW(vk, 0)
+        if scan == 0 then return nil end
+        local ext = (vk == 33 or vk == 34 or vk == 35 or vk == 36 or vk == 37 or vk == 38 or vk == 39 or vk == 40 or vk == 45 or vk == 46 or vk == 111 or vk == 144) and 1 or 0
+        local lparam = scan * 65536 + ext * 16777216
+        local buf = ffi.new("uint16_t[64]")
+        local n = C.GetKeyNameTextW(lparam, buf, 64)
+        if n <= 0 then return nil end
+        local out = {}
+        for i = 0, n - 1 do
+            local c = buf[i]
+            if c < 0x80 then out[#out + 1] = string.char(c)
+            elseif c < 0x800 then out[#out + 1] = string.char(0xC0 + math.floor(c / 64), 0x80 + c % 64)
+            else out[#out + 1] = string.char(0xE0 + math.floor(c / 4096), 0x80 + math.floor(c / 64) % 64, 0x80 + c % 64) end
+        end
+        return table.concat(out)
+    end)
+    if ok and type(name) == "string" and #name > 0 then return name end
+    return nil
+end
+local function hk_key_name(vk)
+    local c = hk_cache[vk]
+    if c then return c end
+    local name = hk_api_name(vk)
+    if not name then
+        if vk >= 48 and vk <= 90 then name = string.char(vk)
+        elseif vk >= 112 and vk <= 135 then name = "F" .. (vk - 111)
+        elseif vk >= 96 and vk <= 105 then name = "Num " .. (vk - 96)
+        else name = HK_NAMES[vk] or ("VK" .. vk) end
+    end
+    hk_cache[vk] = name
+    return name
+end
+
+-- Bouton "touche d'ouverture" (a droite de Normal / Sandbox)
+local function draw_hotkey_button()
+    imgui.SameLine(0, 24)
+    if HK.capturing then
+        if imgui.Button(T("Appuie sur une touche...") .. "##hk_btn") then HK.capturing = false end
+        local skip = { [1] = true, [2] = true, [4] = true, [5] = true, [6] = true, [16] = true, [17] = true, [18] = true,
+            [91] = true, [92] = true, [93] = true, [160] = true, [161] = true, [162] = true, [163] = true, [164] = true, [165] = true }
+        for vk = 8, 254 do
+            if not skip[vk] then
+                local okk, pressed = pcall(imgui.IsKeyPressed, vk, false)
+                if okk and pressed then
+                    if vk ~= 27 then
+                        if vk == 46 or vk == 8 then HK.vk = nil else HK.vk = vk end
+                        save_settings()
+                    end
+                    HK.capturing = false
+                    break
+                end
+            end
+        end
+    else
+        local label = HK.vk and hk_key_name(HK.vk) or T("Aucune")
+        if imgui.Button(T("Touche d'ouverture") .. " : " .. label .. "##hk_btn") then HK.capturing = true end
+        if imgui.IsItemHovered() then
+            imgui.BeginTooltip()
+            imgui.Text(T("clique puis appuie sur une touche (Suppr = aucune)"))
+            imgui.EndTooltip()
+        end
+    end
+end
+
 local function present()
     update() -- le suivi des runs continue meme si la fenetre est fermee
     RBR.poll()
@@ -3038,6 +3474,25 @@ local function present()
     if current and TM.enabled
        and not (free_key(current.name) == "simulator20" and not current.sim_started) then
         draw_timer_window()
+    elseif TU.preview and not current then
+        draw_timer_window(true)
+    end
+    -- sauvegarde de la position / taille une fois le deplacement termine
+    if TU.dirty and os.clock() - TU.dirty > 1 then
+        TU.dirty = nil
+        save_settings()
+    end
+    -- touche d'ouverture
+    if HK.vk and not HK.capturing and type(imgui.IsKeyPressed) == "function" then
+        local typing = false
+        if open and type(imgui.IsAnyItemActive) == "function" then
+            local oka, act = pcall(imgui.IsAnyItemActive)
+            typing = oka and act
+        end
+        if not typing then
+            local okk, pressed = pcall(imgui.IsKeyPressed, HK.vk, false)
+            if okk and pressed then open = not open end
+        end
     end
 
     if not open then return end
@@ -3108,6 +3563,7 @@ local function present()
             end
             pop_theme(n)
         end
+        draw_hotkey_button()
         imgui.Spacing()
         imgui.Separator()
         imgui.Spacing()
@@ -3165,6 +3621,22 @@ end
 
 -- Migration : reconstruit les stats Time Attack (runs valides) depuis l'historique
 local function migrate_stats()
+    -- ID de room des anciens runs : reconstruit depuis l'historique (limite) ; le reste est compte "inconnu"
+    for _, quests in pairs(data) do
+        for _, q in pairs(quests) do
+            if q.secs == nil or q.secs == "" then
+                local t = {}
+                for _, h in ipairs(history) do
+                    if h.name == q.name and h.diff == q.diff and (h.mode or "normal") == q.mode and (h.ang or 0) == (q.ang or 0)
+                       and (h.pc or 0) == (q.pc or 0) and (h.ch or "") == (q.ch or "") then
+                        local sk = secs_key(h)
+                        t[sk] = (t[sk] or 0) + 1
+                    end
+                end
+                q.secs = secs_text(t)
+            end
+        end
+    end
     for _, quests in pairs(data) do
         for _, q in pairs(quests) do
             if q.dtotal == nil then
@@ -3173,6 +3645,14 @@ local function migrate_stats()
                     if h.ok and h.name == q.name and h.diff == q.diff and h.mode == q.mode and (h.ang or 0) == (q.ang or 0) and (h.pc or 0) == (q.pc or 0) and (h.ch or "") == (q.ch or "") then
                         credit_validated(q, h.dur)
                     end
+                end
+                -- L'historique est limite (HISTORY_MAX runs) : si la quete a ete faite plus souvent, on ne perd pas le reste
+                -- (anciennes sauvegardes sans stats Time Attack : les runs plus anciens sont comptes comme valides)
+                local missing = (q.count or 0) - (q.done or 0)
+                if missing > 0 and #history >= HISTORY_MAX then
+                    q.done = (q.done or 0) + missing
+                    q.dtotal = (q.dtotal or 0) + math.max(0, (q.total or 0) - (q.dtotal or 0))
+                    if not q.vbest and q.best then q.vbest = q.best end
                 end
             end
         end
