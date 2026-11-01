@@ -631,6 +631,13 @@ local function other_players_text()
     if ok and type(text) == "string" then return text end
     return ""
 end
+-- Section ID de la room : couleur par ID
+local SECTION_COLORS = {
+    Viridia = { 0.20, 0.80, 0.30 }, Greenill = { 0.65, 1.00, 0.55 }, Skyly = { 0.45, 0.85, 1.00 },
+    Bluefull = { 0.35, 0.55, 1.00 }, Purplenum = { 0.70, 0.40, 0.95 }, Pinkal = { 1.00, 0.55, 0.80 },
+    Redria = { 1.00, 0.25, 0.25 }, Oran = { 1.00, 0.60, 0.15 }, Yellowboze = { 1.00, 0.95, 0.30 },
+    Whitill = { 1.00, 1.00, 1.00 },
+}
 -- Affichage en colonne : nom en blanc, classe et ID en couleur
 local function draw_char_cell(ident, hide_sid)
     local name, cl, sid = char_parts(ident)
@@ -640,17 +647,11 @@ local function draw_char_cell(ident, hide_sid)
         imgui.TextColored(0.6, 0.85, 1.0, 1, cl)
         if not hide_sid then
             imgui.SameLine(0, 6)
-            imgui.TextColored(1.0, 0.85, 0.4, 1, sid)
+            local sc = SECTION_COLORS[sid] or { 1.0, 0.85, 0.4 }
+            imgui.TextColored(sc[1], sc[2], sc[3], 1, sid)
         end
     end
 end
--- Section ID de la room : couleur par ID
-local SECTION_COLORS = {
-    Viridia = { 0.20, 0.80, 0.30 }, Greenill = { 0.65, 1.00, 0.55 }, Skyly = { 0.45, 0.85, 1.00 },
-    Bluefull = { 0.35, 0.55, 1.00 }, Purplenum = { 0.70, 0.40, 0.95 }, Pinkal = { 1.00, 0.55, 0.80 },
-    Redria = { 1.00, 0.25, 0.25 }, Oran = { 1.00, 0.60, 0.15 }, Yellowboze = { 1.00, 0.95, 0.30 },
-    Whitill = { 1.00, 1.00, 1.00 },
-}
 -- Section ID d'un run de l'historique : celle de la room (h.sec), sinon (anciens runs solo) celle du personnage
 local function history_section(h)
     local sec = tonumber(h.room)
